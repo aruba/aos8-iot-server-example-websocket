@@ -1,0 +1,40 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+// Values correspond to the different BLE GATT API transactions
+// A subset of these might not be supported by certain AP types
+enum CharProperty {
+    broadcast               = 0;
+    read                    = 1;
+    writeWithoutResponse    = 2;
+    writeWithResponse       = 3;
+    notify                  = 4;
+    indicate                = 5;
+    signedWrite             = 6;
+    writeReliable           = 7;
+    writeAux                = 8;
+}
+
+// Used to report attributes of a BLE GATT characteristic.
+// used in response to characteristic discovery actions, read actions and
+// asynchronously as a results of GATT notifications
+message Characteristic {
+
+    // Refers to the MAC address of the end device. This should be a 6 byte BLE MAC
+    optional bytes          deviceMac           = 1;
+    
+    // identifiers
+    optional bytes          serviceUuid         = 2;
+    optional bytes          characteristicUuid  = 3;
+    
+    // Value will get populated after reads/notifications/indications
+    optional bytes          value               = 4;
+    
+    // description and properties may get populated after 
+    // connection / characteristic discovery
+    optional string         description         = 5;
+    repeated CharProperty   properties          = 6;
+}

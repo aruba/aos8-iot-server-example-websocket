@@ -1,0 +1,60 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+
+// Type of frame sent by devices and forwarded by the Aruba WLAN.
+// The raw values match those in the standard. The missing values are for frames that are only sent from AP to sensor
+enum BleFrameType {
+    // Connectable undirected advertising which can be connected to by any BLE central.
+    adv_ind         = 0;
+    
+    // Connectable directed advertising which can be connected to by one specific Central.
+    adv_direct_ind  = 1;
+    
+    // Non-connectable undirected advertising which cannot be connected to and cannot respond to a scan request.
+    adv_nonconn_ind = 2;
+    
+    // The scan response packet containing any additional info sent by the peripheral.
+    scan_rsp        = 4;
+    
+    // Scannable undirected advertising which cannot be connected to but which can respond to a scan request.
+    adv_scan_ind    = 6;
+}
+
+
+// Address type for the devices forwarded by the Aruba WLAN
+// The raw values match those in the Bluetooth Standard.
+enum MacAddrType {
+    // Public MAC Address
+    addr_type_public                    = 0;
+
+    // Static MAC Address
+    addr_type_static                    = 1;
+    
+    // Private Non-Resolvable MAC Address
+    addr_type_private_non_resolvable    = 2;
+    
+    // Private Resolvable MAC Address
+    addr_type_private_resolvable        = 3;
+}
+
+
+message BleData {
+    // Advertisement address of the sender
+    optional bytes          mac             = 1;
+    
+    // Frame Type
+    optional BleFrameType   frameType       = 2;
+    
+    // raw payload - up to to 31 bytes for Bluetooth 4.1; up to 255 bytes for BT 4.2 and higher
+    optional bytes          data            = 3;
+    
+    // signal strength in dBm
+    optional sint32         rssi            = 4;
+
+    // Mac Address Type
+    optional MacAddrType    addrType        = 5;
+}

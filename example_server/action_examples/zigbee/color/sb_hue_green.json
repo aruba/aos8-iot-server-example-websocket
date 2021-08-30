@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "access_token": "any",
+    "version": 1,
+    "sbTopic": "zbSbData"
+  },
+  "receiver": {
+    "apMac": "9c8cd8c9e9ee",
+    "all": false
+  },
+  "zigbee": {
+    "radio_mac": "204c03fffe3f35e6",
+    "send": {
+      "reqid": "123456",
+      "mac": "0017880106a0c6b1",
+      "e2pc": {
+        "destination": {
+          "endpoint": 11,
+          "profile_id": "0x0104",
+          "cluster_id": "0x0300"
+        },
+        "source_endpoint": 232
+      },
+      "payload": [
+        17,
+        137,
+        7,
+        0,
+        0,
+        255,
+        255,
+        4,
+        0
+      ]
+    }
+  }
+}

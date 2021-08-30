@@ -1,0 +1,337 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+import "aruba-iot-types.proto";
+
+// Values for rocker switch position
+enum rockerSwitchPosition {
+    idle                                    = 0;
+    topPressed                              = 1;
+    bottomPressed                           = 2;
+}
+
+// Device firmware info. as decoded by AOS
+message Firmware {
+
+	// Active Firmware version
+    optional string   version               = 1;
+
+	// Firmware version reporting format for specific devices
+    optional string   bankA                 = 2;
+
+	// Firmware version reporting format for specific devices
+    optional string   bankB                 = 3;
+}
+
+// RSSI history information
+message History {
+
+	// time of reading
+    required uint64 time                    = 1;
+
+	// RSSI value in dBm
+    required sint32 rssi                    = 2;
+
+	// radio id from where RSSI was received
+    optional int32  rxRadioId               = 3;
+
+	// Antenna value from where RSSI was recorded
+    optional int32  antenna                 = 4;
+}
+
+// RSSI information for BLE device as configured in the 
+// transport profile over the most recent reporting interval
+message Rssi {
+
+	// last (most recent) RSSI reading in a reporting interval
+    optional sint32   last                  = 1;
+
+	// average/mean RSSI reading over reporting interval
+    optional sint32   avg                   = 2;
+
+	// maximum RSSI reading over reporting interval
+    optional sint32   max                   = 3;
+
+	// report multiple RSSI readings over reporting interval
+    repeated History  history               = 4;
+
+	// Smooth the RSSI values using built-in smoothing function
+    optional sint32   smooth                = 5;
+}
+
+// Enum values indicate device's status w.r.t. cell size
+// as defined in the IoT transport profile
+enum CellEvent {
+    entry                                   = 0;
+    exit                                    = 1;
+    update                                  = 2;
+    ageout                                  = 3;
+}
+
+// Indicates device status when the cell size filter is set
+// in the IoT transport profile
+message BeaconEvent  {
+    optional CellEvent  event               = 1;
+}
+
+// Indicates device status when the cell size filter is set
+// in the IoT transport profile
+message Cell {
+    optional bool       isInside            = 1;
+    optional float      distance            = 2;
+}
+
+// IBeacon params. from device's advertisement data
+message Ibeacon {
+    required bytes      uuid                = 1;
+    required uint32     major               = 2;
+    required uint32     minor               = 3;
+    required sint32     power               = 4;
+    optional bytes      extra               = 5;
+}
+
+// Eddystone UID params. from device's advertisement data
+message EddyUID {
+    required bytes      nid                 = 1;
+    required bytes      bid                 = 2;
+}
+
+// Eddystone URL params. from device's advertisement data
+message EddyURL {
+    required uint32     prefix              = 1;
+    required bytes      encodedUrl          = 2;
+}
+
+// Eddystone txpower and UID/URL params. from device's advertisement data
+message Eddystone {
+    optional sint32     power               = 1;
+    optional EddyUID    uid                 = 2;
+    optional EddyURL    url                 = 3;
+}
+
+message Beacons {
+    optional  Ibeacon     ibeacon           = 1;
+    optional  Eddystone   eddystone         = 2;
+//  reserved                                  3;
+}
+
+// Values for accelerometer status
+enum AccelStatus {
+    ok                                      = 0;
+    outOfRange                              = 1;
+    threshold1                              = 2;
+    threshold2                              = 3;
+}
+
+// Accelerometer sensor information
+message Accelerometer {
+    required float  x                       = 1;
+    required float  y                       = 2;
+    required float  z                       = 3;
+    optional AccelStatus status             = 4;
+}
+
+// Rocker switch information onboard BLE device
+message RockerSwitch {
+    required string                 id      = 1;
+    required rockerSwitchPosition   state   = 2;
+}
+
+// Values for type of alarm sensor onboard BLE device
+enum Alarm {
+    water                                   = 1;    
+    smoke                                   = 2;    
+    fire                                    = 3;    
+    glassbreak                              = 4;    
+    intrusion                               = 5;    
+}
+
+// Values for contact sensor onboard BLE device
+enum ContactPosition {
+    open                                    = 1;
+    closed                                  = 2;
+}
+
+// Contact sensor information
+message Contact {
+    required  uint32           id           = 1;
+    required  ContactPosition  state        = 2;
+}
+
+// Occupancy sensor information
+message Occupancy {
+    optional  uint32        level           = 1;
+}
+
+// Values for mechanical handle sensor onboard BLE device
+enum MechanicalH {
+    upToRight                               = 1;
+    rightToDown                             = 2;
+    downToLeft                              = 3;
+    leftToUp                                = 4;
+    upToLeft                                = 5;
+    leftToDown                              = 6;
+    downToRight                             = 7;
+    rightToUp                               = 8;
+}
+
+// Sensor values as decoded from BLE packets
+// the units for the sensor values depends upon
+// the underlying sensor/device type.
+message Sensors {
+    optional  Accelerometer accelerometer     = 1;
+    optional  int32         battery           = 2;
+    optional  float         temperatureC      = 3;
+    optional  int32         humidity          = 4;
+    optional  float         voltage           = 5;
+    optional  int32         illumination      = 6;
+    optional  bool          motion            = 7;
+    optional  sint32        current           = 8;
+    optional  int32         CO                = 9;              
+    optional  int32         CO2               = 10;              
+    optional  int32         VOC               = 11;
+    optional  float         resistance        = 12;
+    optional  sint32        pressure          = 13;
+    repeated  Alarm         alarm             = 14;
+    repeated  Contact       contact           = 15;
+    optional  Occupancy     occupancy         = 16;              
+    optional  MechanicalH   mechanicalHandle  = 17;              
+    optional  int32         distance          = 18;              
+    optional  float         capacitance       = 19;              
+}
+
+// Statistics regarding the BLE device
+message Stats {
+	// device uptime in second
+    optional  uint64    uptime              = 1;
+
+	// number of advertisement packets
+    optional  uint64    adv_cnt             = 2;
+
+	// sequence number of packet
+    optional  uint32    seq_nr              = 3;
+
+	// total frame count (advertisements and scan responses)
+	// in a given reporting interval
+    required  uint32    frame_cnt           = 4;
+}
+
+// Values communicate the state of the switch sensor 
+// onboard the BLE device
+enum switchState {
+    unknown                                 = 1;    
+    on                                      = 2;    
+    off                                     = 3;    
+}
+
+// Values for different input modalities on BLE devices
+message Inputs {
+
+	// Rocker switch information 
+    repeated  RockerSwitch rocker           = 1;
+
+	// Switch state information
+    repeated  switchState  switchIndex      = 2;
+}
+
+// Vendor data corresponds to the entity that 
+// manufactured the BLE device. This is a fixed mapping for
+// certain vendors in AOS
+message VendorData {
+    optional string     vendor              = 1;
+    required bytes      data                = 2;
+}
+
+// BT SIG Company ID Information
+message BTCompanyID {
+    // number corresponds to 2 byte hex for the company identifier
+    optional uint32     value               = 1;
+
+    // company name as specified in the BT SIG identifier list
+    optional string     description         = 2;  
+}
+
+
+// Values contained herein correspond to BLE device information
+// gleaned from advertisement/scan responses that are decoded by
+// the Aruba infrastructure. The periodicity of this message is 
+// controlled by the transport profile parameters.
+message Reported {
+
+	// BLE MAC address of observed device
+    optional  bytes      mac                = 1;
+
+	// Device class label assigned by AOS infra
+	// see aruba-iot-types.proto
+    repeated deviceClassEnum deviceClass    = 2;
+
+	// Device model number as decoded by AOS
+    optional string     model               = 3;
+
+	// Device firmware info. as decoded by AOS
+    optional Firmware   firmware            = 4;
+
+	// Device specific id
+    optional string     assetId             = 5;
+
+	// Device public key
+    optional bytes      publicKey           = 6;
+
+	// Timestamp device data was recorded by this AP/APB
+    optional uint64     lastSeen            = 7;
+
+//    reserved                                8;
+
+	// Indicate device's status w.r.t. cell size
+    // as defined in the IoT transport profile
+    optional BeaconEvent bevent             = 9;
+
+	// Observed RSSI information
+    optional Rssi       rssi                = 10;
+
+	// Indicate device's status w.r.t. cell size
+    // as defined in the IoT transport profile
+    optional Cell       cell                = 11;
+
+	// IBeacon/Eddystone decoded fields
+    repeated Beacons    beacons             = 12;
+
+	// Device Transmit power
+    optional sint32     txpower             = 13;
+
+	// Sensor values
+    optional Sensors    sensors             = 14;
+
+//    reserved                                15;
+
+	// BLE device packet statistics
+    optional Stats      stats               = 16;
+
+	// BLE device that are capable of receiving physical input from user
+    optional Inputs     inputs              = 17;
+
+	// Vendor information for BLE device
+    optional VendorData vendorData          = 18;
+
+	// Vendor name string
+    optional string     vendorName          = 19;
+
+	// Timestamp when sensor values were updated
+    optional uint64     sensorTimestamp     = 20;
+
+	// Any flags values set for the BLE device
+    optional uint32     flags               = 21;
+
+	// Localname string seen in BLE packets
+    optional string     localName           = 22;
+
+	// Identity string observed from BLE packets
+    optional string     identity            = 23;
+
+    // BT SIG company identifier information
+    repeated BTCompanyID    companyIdentifier   = 24;
+}
+

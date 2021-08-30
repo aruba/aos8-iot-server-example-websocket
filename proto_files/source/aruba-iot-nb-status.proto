@@ -1,0 +1,32 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+// Enum values related to BLE SB API connection updates
+enum statusValue {
+    deviceDisconnected      = 0;
+    inactivityTimeout       = 1;
+    connectionUpdate        = 2;
+}
+
+message ConnUpdate {
+    // The negotiated MTU Value between BLE central and peripheral
+    optional uint32         mtu_value       = 1;
+}
+
+message Status {
+    // Refers to the MAC address of the end device. Typically a 6 byte BLE MAC or 8 byte Zigbee MAC
+    optional bytes          deviceMac       = 1;
+
+    // Status enum from above
+    optional statusValue    status          = 2;
+
+    // Optional additional freeform information
+    optional string         statusString    = 3;
+
+    // Connection update information
+    optional ConnUpdate     connUpdate      = 4;
+ 
+}

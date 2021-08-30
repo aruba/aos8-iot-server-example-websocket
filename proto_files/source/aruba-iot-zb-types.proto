@@ -1,0 +1,39 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+import "aruba-iot-types.proto";
+
+// Zigbee EPC
+message ZbEPC {
+    // Endpoint
+    optional uint32 endpoint = 1;
+    // Profile ID
+    optional uint32 profile_id = 2;
+    // Cluster ID
+    optional uint32 cluster_id = 3;
+}
+
+// Zigbee E2PC
+message ZbE2PC {
+    // Destination endpoint, and profile ID, cluster ID
+    optional ZbEPC  destination = 1;
+    // Source endpoint
+    optional uint32 source_endpoint = 2;
+}
+
+// Zigbee ACK result for send or action/write reqeust
+enum ZbResult {
+    // Success
+    SUCCEEDED   = 0;
+    // Generic failure
+    FAILED      = 1;
+}
+
+// Ack code for failure
+enum ZbAckCode {
+    OK  = 0;
+}
+

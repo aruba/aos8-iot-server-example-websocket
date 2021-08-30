@@ -1,0 +1,25 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+//Server Response to the IoT transport profile's connection
+enum ConnectCode {
+
+    // connect ok
+    statusOK              = 0;
+    // Token has expired
+    tokenExpire           = 1;
+
+}
+
+// This topic can be used to let server respond on the connection with AP/Controllers
+message ConnectStatus {
+    
+    // The server response connection code
+    optional ConnectCode    connectCode         = 1;
+
+    // The Server response description for connection code
+    optional string         connectDescription  = 2;
+}

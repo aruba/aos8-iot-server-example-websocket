@@ -1,0 +1,17 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+// Serial data received from known 3rd party IoT radios
+message NbSerialData {
+    // Contents of the serial message 
+    // This is the hex bytes read from the serial device
+    optional bytes          nbSerialPayload   = 1;
+
+    // id of 3rd party radio
+    // needs to be included in any SB SerialData msgs
+    optional string         nbDeviceId        = 2;
+}
+

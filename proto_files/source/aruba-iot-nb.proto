@@ -1,0 +1,102 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+import "aruba-iot-types.proto";
+import "aruba-iot-nb-telemetry.proto";
+import "aruba-iot-nb-action-results.proto";
+import "aruba-iot-nb-characteristic.proto";
+import "aruba-iot-nb-ble-data.proto";
+import "aruba-iot-nb-wifi-data.proto";
+import "aruba-iot-nb-device-count.proto";
+import "aruba-iot-nb-status.proto";
+import "aruba-iot-nb-zb.proto";
+import "aruba-iot-nb-serial-data.proto";
+import "aruba-iot-nb-ap-health-update.proto";
+
+// Details of the access point (AP) reporting the scanned IoT devices
+message Reporter {
+	// AP name string
+    optional string name                    = 1;
+
+	// AP Ethernet MAC address
+    optional bytes  mac                     = 2;
+
+	// AP IPv4 address
+    optional string ipv4                    = 3;
+
+	// AP IPv6 address
+    optional string ipv6                    = 4;
+
+	// AP HW type string
+    optional string hwType                  = 5;
+
+	// AOS software version string
+    optional string swVersion               = 6;
+
+	// AOS software build string
+    optional string swBuild                 = 7;
+
+	// Current AP timestamp
+    optional uint64 time                    = 8;
+}
+
+// This is the main NorthBound message container.
+// This interface started as pure NB telemetry, hence the 
+// name of this message type
+message Telemetry {
+    required Meta           meta            = 1;
+    required Reporter       reporter        = 2;
+
+    // from: aruba-iot-nb-telemetry.proto
+    // This topic is only filled in for periodic telemetry 
+    // reporting messages.
+    repeated Reported       reported        = 3;
+
+    // from: aruba-iot-nb-action-results.proto
+    // This topic is for reporting results from Actions issued
+    // by the server. This topic just reports the action status.
+    // Any associated value updated will come as topic of the 'values' topic
+    repeated ActionResult   results         = 4;
+
+    // from: aruba-iot-nb-characteristic.proto
+    // This topic is used to convey updated BLE characteristics.
+    // It could be as a response to a read action, a characteristics discovery action or 
+    // asynchronously as an update resulting from a GATT notification 
+    repeated Characteristic characteristics = 5;
+
+    // from: aruba-iot-nb-ble-data.proto
+    // This topic is used to send entire BLE payloads of 
+    // advertisement frames or scan response frames. 
+    // Supported only for a limited number of devices and/or payloads
+    repeated BleData        bleData         = 6;
+
+    // from: aruba-iot-nb-wifi-data.proto
+    // This topic is used to send WiFi device data
+    repeated WiFiData       wifiData        = 7;
+
+    // from: aruba-iot-nb-device-count.proto
+    // This topic is used to send device counts only 
+    optional DeviceCount    devCount        = 8;
+
+    // from: aruba-iot-nb-status.proto
+    // Topic is used to used for reporting generic status messages
+    // to the server, that do not fit in other other topics
+    optional Status         status          = 9;
+
+    // from: aruba-iot-nb-zb.proto
+    // NB messages for Zigbee
+    optional NbZbMsg        zigbee          = 10;
+
+    // from: aruba-iot-nb-serial-data.proto
+    // Topic is used for forwarding serial messages received from
+    // a 3rd party IoT radio to the configured server
+    repeated NbSerialData   nbSData         = 11;
+    
+    // from: aruba-iot-nb-ap-health-update.proto
+    // Topic is used for AP Health update messages, also known as
+    // keepalives. Generic information about APs will be put here
+    optional ApHealthUpdate apHealth        = 12;
+}

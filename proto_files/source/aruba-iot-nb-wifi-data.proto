@@ -1,0 +1,23 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+import "aruba-iot-types.proto";
+
+// WiFi device data as recorded by AOS
+message WiFiData {
+    // Advertisement address of the sender
+    optional bytes          mac             = 1;
+    
+    // device sub type (rtls, assoc, unassoc, ...)
+    repeated deviceClassEnum deviceClass    = 2;
+    
+    // signal strength in dBm
+    optional sint32         rssi            = 3;
+    
+    // payload of rtls tag (passed opaquely to server)
+    optional bytes          rtls_payload    = 4;
+
+}

@@ -1,0 +1,56 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+import "aruba-iot-zb-types.proto";
+
+// Send Zigbee APS data to remote device
+message ZbSbSend {
+    // Request ID: when this field exists, acknowledgement from AP is required.
+    optional string reqid = 1;
+    // IEEE address of destination device
+    optional bytes  mac = 2;
+    // Source/destionation endpoint, profile ID, cluster ID
+    optional ZbE2PC e2pc = 3;
+    // Payload of APS data
+    optional bytes  payload = 4;
+}
+
+// Read request for information or configuration from AP or remote device
+message ZbSbRead {
+    // Request ID for read
+    optional string reqid = 1;
+}
+
+// Write request for information or configuration to AP or remote device
+message ZbSbWrite {
+    // Request ID for write
+    optional string reqid = 1;
+}
+
+// Action request for AP or remote device
+message ZbSbAction {
+    // Request ID for action
+    optional string reqid = 1;
+}
+
+message ZbSbReq {
+    // Read request
+    optional ZbSbRead   read = 1;
+    // Write request
+    optional ZbSbWrite  write = 2;
+    // Action request
+    optional ZbSbAction action = 3;
+}
+
+
+message SbZbMsg {
+    // Zigbee radio IEEE MAC which is 8 octets
+    optional bytes      radio_mac = 1;
+    // Send APS data
+    optional ZbSbSend   send = 2;
+    // Request to AP or remote Zigbee device
+    optional ZbSbReq    request = 3;
+}

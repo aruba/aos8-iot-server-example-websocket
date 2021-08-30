@@ -1,0 +1,83 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+import "aruba-iot-types.proto";
+
+// Method of security authentication
+enum AuthenticationMethod {
+    // legacy: no mitm
+    none        = 0;
+
+    // legacy: mitm, passkey
+    passkey     = 1;
+
+    // legacy: mitm, keyOob
+    oob         = 2;
+
+    // lesc: no mitm
+    lescNone    = 3;
+
+    // lesc: mitm, passkey
+    lescPasskey = 4;
+
+    // lesc: mitm, keyOob
+    lescOob     = 5;
+}
+
+// Security authentication
+message Authentication {
+    // Reuired field. Specifiy which method is used for authentication
+    optional AuthenticationMethod   method      = 1;
+
+    // Whether bonding is enabled, which also depends on peer's bond
+    optional bool                   bonding     = 2;
+
+    // Whether passkey is used. Passkey is  6 numeric digits (‘0’ - ‘9’)
+    // ‘0’ will be prefixed if length of passkey is less than 6
+    // Required when method is 'passkey' or 'lescPasskey'
+    optional string                 passkey     = 3;
+
+    // 16-bytes hexadecimal key. 0 will be prefixed if its length is less than 16
+    // This is required when method is 'oob' or 'lescOob'
+    optional bytes                  keyOob      = 4;
+
+    // 16-bytes hexadecimal key. 0 will be prefixed if its length is less than 16
+    // This is required when lesc is used, and peer uses the server's keyOwn or passkey is used
+    optional bytes                  keyOwn      = 5;
+}
+
+// Actions are instructions for the AP
+message Action {
+
+    // Identifier for the action. The sender needs to remember this id while the action is being executed.
+    // The same action ID is included in the action results message, so that the sender can correlate
+    // the results with the outrstanding action request. Max of 256 characters, remaining will be truncated
+    optional string         actionId            = 1;
+    
+    // Type of action to be executed
+    optional ActionType     type                = 2;
+    
+    // Refers to the MAC address of the end device. Typically a 6 byte BLE MAC or 8 byte Zigbee MAC
+    optional bytes          deviceMac           = 3;
+    
+    // service UUID for BLE GATT read/write/notify Actions
+    optional bytes          serviceUuid         = 4;
+    
+    // characteristic UUID for BLE GATT read/write/notify Actions
+    optional bytes          characteristicUuid  = 5;
+    
+    // maximum allotted time for the action to complete (in whole seconds)
+    optional uint32         timeOut             = 6;
+    
+    // Value to be used in write Actions
+    optional bytes          value               = 7;
+
+    // Authentication for pairing and encryption
+    optional Authentication authentication      = 8;
+
+    // Encryption for bonded devices
+    optional BleBondingKey  bondingKey          = 9;
+}

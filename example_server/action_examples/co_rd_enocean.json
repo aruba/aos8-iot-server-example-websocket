@@ -1,0 +1,15 @@
+{
+    "meta": {
+        "access_token": "testtoken",
+        "version": 1,
+        "sbTopic": "serialDataSb"
+    },
+    "sbSData": [{
+        "sbDeviceId": "ENOCEAN_USB:f6a68e740ecc549496d4b63072a33920",
+        "sbSerialPayload": "5500010005700309"
+    }],
+    "receiver": {
+        "apMac": "904c81cf3886",
+        "all": false 
+    }
+}

@@ -1,0 +1,51 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+import "aruba-iot-types.proto";
+import "aruba-iot-sb-action.proto";
+import "aruba-iot-sb-config.proto";
+import "aruba-iot-sb-status.proto";
+import "aruba-iot-sb-zb.proto";
+import "aruba-iot-sb-serial-data.proto";
+
+// This message specifies the receiver of the SouthBound frames.
+// The receiver is either a single AP or a broadcast to all APs
+// It is present in every SB message
+message Receiver {
+
+    // indicates whether this message is destined for all APs, or just one.
+    optional    bool            all         = 1;
+
+    // In case of a single AP receiver, the apMac specifies the receiving AP (or controller)
+    // For broadcast messages ('all' = true), this field can be omitted and on the receive side, should be ignored
+    optional    bytes           apMac       = 2;
+}
+
+
+
+// This is the main container for SouthBound messages
+message IotSbMessage {
+    required    Meta            meta        = 1;
+    optional    Receiver        receiver    = 2;
+
+    // defined in "aruba-iot-sb-action.proto"
+    // Used with 'Actions' topic. The destination for this topic is always a single AP (no broadcasts)
+    repeated    Action          actions     = 3;
+
+    // defined in "aruba-iot-sb-config.proto"
+    // Used with the 'config' topic. The destination for this topic is usually 'all'
+    optional    TransportConfig config      = 4;
+
+    // defined in "aruba-iot-sb-status.proto"
+    // Used with the 'status' topic. Server use this field to response connection problem
+    optional    ConnectStatus   status      = 5;
+
+    // Zigbee SB topic
+    optional    SbZbMsg         zigbee      = 6;
+
+    // Serial Data SB topic
+    repeated    SbSerialData    sbSData     = 7;
+}

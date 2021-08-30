@@ -1,0 +1,21 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+// Serial data from 3rd party server meant to be
+// forwarded via the suppported matching 3rd party radio
+message SbSerialData {
+
+    // id of 3rd party radio
+    // Starting 8.8, this is will be populated in the apHealthUpdate
+    // NB keepalive message that is sent every 120s for USB devices.
+    // If there is an id mismatch, it will be indicated to the server
+    // via an NB message with meta topic set to actionResults
+    optional string         sbDeviceId          = 1;
+    
+    // Contents of the SB serial message 
+    // Hex bytes to be written to the serial device
+    optional bytes          sbSerialPayload     = 2;
+}

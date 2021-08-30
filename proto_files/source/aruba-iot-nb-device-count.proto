@@ -1,0 +1,39 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+import "aruba-iot-types.proto";
+
+// Used for reporting counts of devices corresponding
+// to each device class label in IoT transport profiles
+message DeviceCount {
+    optional int32 dev_unclassified         = 1;
+    optional int32 dev_arubaBeacon          = 2;
+    optional int32 dev_arubaTag             = 3;
+    optional int32 dev_zfTag                = 4;
+    optional int32 dev_stanleyTag           = 5;
+    optional int32 dev_virginBeacon         = 6;
+    optional int32 dev_enoceanSensor        = 7;
+    optional int32 dev_enoceanSwitch        = 8;
+    optional int32 dev_iBeacon              = 9;
+    optional int32 dev_allBleData           = 10;
+    optional int32 dev_RawBleData           = 11;
+    optional int32 dev_eddystone            = 12;
+    optional int32 dev_assaAbloy            = 13;
+    optional int32 dev_arubaSensor          = 14;
+    optional int32 dev_abbSensor            = 15;
+    optional int32 dev_wifiTag              = 16;
+    optional int32 dev_wifiAssocSta         = 17;
+    optional int32 dev_wifiUnassocSta       = 18;
+    optional int32 dev_mysphera             = 19;
+    optional int32 dev_sBeacon              = 20;
+    optional int32 dev_onity                = 21;
+    optional int32 dev_minew                = 22;
+    optional int32 dev_google               = 23;
+    optional int32 dev_polestar             = 24;
+    optional int32 dev_blyott               = 25;
+    optional int32 dev_diract               = 26;
+    optional int32 dev_gwahygiene           = 27;
+}

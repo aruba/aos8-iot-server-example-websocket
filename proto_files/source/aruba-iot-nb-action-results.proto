@@ -1,0 +1,50 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+import "aruba-iot-types.proto";
+
+// Values correspond to the different action results/statuses 
+// as part of the BLE SB API interactions
+enum ActionStatus {
+    failureGeneric              = 0;
+    success                     = 1;
+    deviceNotFound              = 2;
+    apNotFound                  = 3;
+    actionTimeout               = 4;
+    connectionAborted           = 5;
+    authenticationFailed        = 6;
+    notConnected                = 7;
+    previousActionFailed        = 8;
+    alreadyConnected            = 9;
+    noMoreConnectionSlots       = 10;
+    decodingFailed              = 11;
+    characteristicNotFound      = 12;
+    invalidRequest              = 13;
+    gattError                   = 14;
+    encryptionFailed            = 15;
+}
+
+message ActionResult {
+
+    // Identifier for the action. This is the same Identifer that was used in the action request.
+    // the originator of the action will need the ID to correlate this result with the outstanding request
+    optional string         actionId        = 1;
+    
+    // Type of action that was executed
+    optional ActionType     type            = 2;
+    
+    // Refers to the MAC address of the end device. Typically a 6 byte BLE MAC or 8 byte Zigbee MAC
+    optional bytes          deviceMac       = 3;
+    
+    // Completion Status of the action
+    optional ActionStatus   status          = 4;
+    
+    // Optional additional freeform information
+    optional string         statusString    = 5;
+
+    // Bonding key is present when devices are bonded together
+    optional BleBondingKey  bondingKey      = 6;
+}

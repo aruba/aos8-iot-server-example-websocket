@@ -1,0 +1,31 @@
+{
+    "meta": {
+       "access_token": null,
+       "version": 1,
+       "sbTopic": "actions"
+    },
+    "actions": [
+       {
+          "deviceMac": "e4:f2:05:7e:e8:68",
+          "serviceUuid": null,
+          "value": null,
+          "characteristicUuid": null,
+          "actionId": "00000001",
+          "timeOut": 20,
+          "type": "bleConnect"
+       },
+       {
+           "deviceMac": "e4:f2:05:7e:e8:68",
+           "serviceUuid": null,
+           "value": null,
+           "characteristicUuid": null,
+           "actionId": "00000002",
+           "timeOut": 60,
+           "type": "bleDisconnect"
+       }
+    ],
+    "receiver": {
+       "apMac": "90:4c:81:cf:38:86",
+       "all": false
+    }
+ }

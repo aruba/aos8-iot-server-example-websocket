@@ -1,0 +1,45 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+import "aruba-iot-zb-types.proto";
+
+// Report/send APS data to server
+message ZbNbReport {
+    // IEEE address of the device
+    optional bytes  mac = 1;
+    // E2PC
+    optional ZbE2PC e2pc = 2;
+    // Payload of report data
+    optional bytes  payload = 3;
+}
+
+// Used for send, write/action request
+message ZbNbAck {
+    // Request ID
+    optional string     reqid = 1;
+    // Indicate whether send, write/action request is successful
+    optional ZbResult   result = 2;
+    // Indicate the code for failure
+    optional ZbAckCode  code = 3;
+}
+
+// Used for read request
+message ZbNbRsp {
+    // Request ID
+    optional string reqid = 1;
+}
+
+
+message NbZbMsg {
+    // Zigbee radio MAC
+    optional bytes          radio_mac = 1;
+    // Report/send APS data
+    optional ZbNbReport     report = 2;
+    // Acknowledgement for send, write/action request
+    optional ZbNbAck        ack = 3;
+    // Response for read request
+    optional ZbNbRsp        response = 4;
+}

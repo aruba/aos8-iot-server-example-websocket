@@ -1,0 +1,58 @@
+{
+    "meta": {
+       "access_token": null,
+       "version": 1,
+       "sbTopic": "actions"
+    },
+    "actions": [
+       {
+          "deviceMac": "e4:f2:05:7e:e8:68",
+          "serviceUuid": null,
+          "value": null,
+          "characteristicUuid": null,
+          "actionId": "00000001",
+          "timeOut": 20,
+          "type": "bleConnect"
+       },
+       {
+          "deviceMac": "e4:f2:05:7e:e8:68",
+          "serviceUuid": "19B10000-E8F2-537E-4F6C-D104768A1214",
+          "value": null,
+          "characteristicUuid": "19B10001-E8F2-537E-4F6C-D104768A1214",
+          "actionId": "00000002",
+          "timeOut": 20,
+          "type": "gattRead"
+       },
+       {
+          "deviceMac": "e4:f2:05:7e:e8:68",
+          "serviceUuid": "19B10000-E8F2-537E-4F6C-D104768A1214",
+          "value": "64",
+          "characteristicUuid": "19B10001-E8F2-537E-4F6C-D104768A1214",
+          "actionId": "00000003",
+          "timeOut": 20,
+          "type": "gattWriteWithResponse"
+       },
+       {
+          "deviceMac": "e4:f2:05:7e:e8:68",
+          "serviceUuid": "19B10000-E8F2-537E-4F6C-D104768A1214",
+          "value": null,
+          "characteristicUuid": "19B10001-E8F2-537E-4F6C-D104768A1214",
+          "actionId": "00000004",
+          "timeOut": 20,
+          "type": "gattRead"
+       },
+       {
+           "deviceMac": "e4:f2:05:7e:e8:68",
+           "serviceUuid": null,
+           "value": null,
+           "characteristicUuid": null,
+           "actionId": "00000005",
+           "timeOut": 60,
+           "type": "bleDisconnect"
+       }
+    ],
+    "receiver": {
+       "apMac": "90:4c:81:cf:38:86",
+       "all": false
+    }
+ }

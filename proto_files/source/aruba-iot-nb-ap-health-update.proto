@@ -1,0 +1,65 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+// Indicates status of the Radio/USB device
+enum HealthStatus {
+    healthy             = 0;
+    degraded            = 1;
+    unavailable         = 2;
+}
+
+// Indicates FW type running on the onboard IoT radio
+enum IotRadioFirmware {
+    arubaDefault        = 0;
+}
+
+// Indicates type of the IoT radio HW
+// gen1 is capable of BLE 4.0 only (3xx series minus 303P)
+// gen2 is capable of BLE 5.0 and Zigbee  (303P, 5xx and 6xx series)
+enum IotRadioType {
+    gen1                = 0;
+    gen2                = 1;
+}
+
+// Iot Radio sub message include information about the
+// onboard/USB Aruba IoT radio
+message IotRadio {
+
+    // MAC address of the device
+    optional bytes              mac             = 1;
+
+    // Hardware type of the Aruba radio
+    optional IotRadioType       hardware        = 2;
+
+    // FW type running on the Aruba IoT radio
+    optional IotRadioFirmware   firmware        = 3;
+
+    // Indicates status of the Radio/USB device
+    optional HealthStatus       health          = 4;
+
+    // Value will be true in case of the AP-USB-ZB dongle, false otherwise
+    optional bool               external        = 5;
+}
+
+// USB device sub message include information about 
+// supported partner USB devices (IoT gateways, sensors, etc.)
+message UsbDevice {
+
+    // This is a unique string to identify the attached USB device
+    optional string             identifier      = 1;
+
+    // Indicates status of the Radio/USB device
+    optional HealthStatus       health          = 2;
+}
+
+
+// Indicates health of the various IoT devices onboard/attached
+// to the AP
+message ApHealthUpdate {
+    optional HealthStatus       apStatus        = 1;
+    repeated IotRadio           radio           = 2;
+    repeated UsbDevice          usb             = 3;
+}

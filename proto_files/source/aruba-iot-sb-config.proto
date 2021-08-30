@@ -1,0 +1,17 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+
+// This topic can be used to override some of the parameters in the iot-transport-profile
+message TransportConfig {
+
+    // The reporting interval for NB telemetry messages.
+    // The period is measured in seconds and cannot be 0
+    optional uint32     reportingPeriod     = 1;
+    
+    // The Cell Size in whole meters
+    optional uint32     cellSize            = 2;
+}

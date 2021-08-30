@@ -1,0 +1,135 @@
+//  (C) Copyright [2018-2021] Hewlett Packard Enterprise Development LP
+
+syntax = "proto2";
+
+package aruba_telemetry;
+
+
+// enumeration of device classes. These device classes
+// can be used to filter devices and will be used to classify each device.
+// An IOT device can be part of more than one class. 
+enum deviceClassEnum {
+    unclassified                            = 0;
+    arubaBeacon                             = 1;
+    arubaTag                                = 2;
+    zfTag                                   = 3;
+    stanleyTag                              = 4;
+    virginBeacon                            = 5;
+    enoceanSensor                           = 6;
+    enoceanSwitch                           = 7;
+    iBeacon                                 = 8;
+    allBleData                              = 9;
+    RawBleData                              = 10;
+    eddystone                               = 11;
+    assaAbloy                               = 12;
+    arubaSensor                             = 13;
+    abbSensor                               = 14;
+    wifiTag                                 = 15;
+    wifiAssocSta                            = 16;
+    wifiUnassocSta                          = 17;
+    mysphera                                = 18;
+    sBeacon                                 = 19;
+    wiliot                                  = 20;
+    ZSD                                     = 21;
+    serialdata                              = 22;
+    exposureNotification                    = 23;
+    onity                                   = 24;
+    minew                                   = 25;
+    google                                  = 26;
+    polestar                                = 27;
+    blyott                                  = 28;
+    diract                                  = 29;
+    gwahygiene                              = 30;
+    noneBleData                             = 31;
+}
+
+
+// Actions used in the southbound API.
+enum ActionType {
+    // Connect to a BLE device
+    bleConnect              = 0;
+
+    // Disconnect from a BLE device
+    // The device must already be connnected for this action to succeed
+    bleDisconnect           = 1;
+
+    // Read from GATT characteristic. The value will be returned using the 'characteristics' topic.
+    // The action result will be returned in the 'results' topic
+    // The device must already be connnected for this action to succeed
+    gattRead                = 2;
+
+    // Write to GATT characteristic.
+    // The action result will be returned in the 'results' topic
+    // The device must already be connnected for this action to succeed
+    gattWrite               = 3;
+    gattWriteWithResponse   = 4;
+
+    // Enable/Disable GATT notifications on a characteristic. 
+    // Notifications will result in updated values via the 'characteristcs' topic.
+    // The device must already be connnected for this action to succeed
+    gattNotification        = 5;
+
+    // Enable/Disable GATT indications on a characteristic. 
+    // Indications will result in updated values via the 'characteristics' topic.
+    // The device must already be connnected for this action to succeed
+    gattIndication          = 6;
+
+    // Authenticate peer BLE device, which is an optional action.
+    // This action can only be used during connection
+    bleAuthenticate         = 7;
+
+    // Encrypt link with the key received from last successful authentication.
+    // Also, this action can only be used during connection
+    bleEncrypt              = 8;
+}
+
+// The topic helps in identifying the message type
+// NbTopic specifies the topic for Northbound messages
+enum NbTopic {
+    telemetry               = 0;
+    actionResults           = 1;
+    characteristics         = 2;
+    bleData                 = 3;
+    wifiData                = 4;
+    deviceCount             = 5;
+    status                  = 6;
+    zbNbData                = 7;
+    serialDataNb            = 8;
+    apHealthUpdate          = 9;
+}
+
+// The topic helps in identifying the message type
+// SbTopic specifies the topic for Southbound messages
+enum SbTopic {
+    actions                 = 0;
+    config                  = 1;
+    sbStatus                = 2;
+    zbSbData                = 3;
+    serialDataSb            = 4;
+}
+
+// The topic includes the bonding key generated after sucessful pairing and bonding.
+// Bonding happens only when both sides enable bonding
+message BleBondingKey {
+    // Encryption key which is generated when bonding is enabled for pairing
+    optional bytes  key     = 1;
+}
+
+// Mandatory header for every frame
+message Meta {
+    // Only version 1 is supported for now
+    required uint64 version                 = 1;
+
+    // Access Token is provided in all NB frames. The server is expected to validate the 
+    // token and report an error if the token is not valid
+    optional string access_token            = 2;
+
+    // For Northbound frames, the topic indicates the type of payload. 
+    // Only one topic can be present per message
+    optional NbTopic nbTopic                = 3;
+
+    // For SouthBound frames, the topic indicates the type of payload. 
+    // Only one topic can be present per message
+    optional SbTopic sbTopic                = 4;
+}
+
