@@ -39,7 +39,6 @@ require('log-timestamp');
 var aruba_telemetry_proto = require("./aruba_iot_proto_MODIFIED.js").aruba_telemetry;
 
 const aruba_ws_clients = {};    // stores connected ws clients info 
-var g_wsoc = null;
 const port = 7443;
 const MAX_CONNECTIONS = 100;
 var msg_counter = 0;
@@ -58,16 +57,27 @@ httpServer.listen(port, function(){
  ************* REST ENDPOINTS **************
  *******************************************/
 
+// Endpoint allows user to send a properly formatted SB api message back to
+// the IAP/controller based on the receiver MAC value. 
+// Note: Since we lookup the connection ID in the aruba_ws_clients object, which is 
+//       created from apHealthUpdate messages, users cannot send a SB msg until the 
+//       AP MAC is populated alongwith the connection ID. Users can call the ap_topo
+//       endpoint to check if the receiver AP of interest is present in the 
+//       aruba_ws_clients object.
+// Note: the receiver->all option (set to true) is not supported in this function.
 app.post('/sb_api', jsonParser,function(req,res){
   // handle API from GUI and send mesg to WSS.
   var conn_id = null;
   var reqBody = req.body;
   var recv_apmac = null;
   var mac_isbase64 = null;
-  let status_str = "{ \"status\": \"ERROR: AP Mac not found\" }"
   
   console.log("Inside /sb_api");
-  // re-format apmac inorder to do a lookup for the ws client
+
+  // When using aruba_iot_proto_MODIFIED.js, AP mac is converted to string when the msg
+  // is decoded and its contents are store in arub_ws_clients. However, in the sb_api 
+  // endpoint, the AP MAC is expected to be base64 encoded. That is why, we re-format 
+  // the SB api apmac in order to do a lookup for the ws client
   if (validator.isBase64(reqBody.receiver.apMac)) {
     recv_apmac = Buffer.from(reqBody.receiver.apMac, 'base64').toString("hex");
     console.log(`is BASE64 val:${reqBody.receiver.apMac} convertedValue:${recv_apmac}`)
@@ -80,54 +90,38 @@ app.post('/sb_api', jsonParser,function(req,res){
     console.log("Receiver AP Mac minus colon: " +recv_apmac)
   }
 
-
-
-  // // Iterate thru all APs and locate the proper ws client handle
-  // for (var key in aruba_ws_clients) {
-  //   if (aruba_ws_clients[key].reporter.mac === recv_apmac) {
-  //     console.log(`Found key: ${key} for reporter MAC:${recv_apmac} with WS connection id:${aruba_ws_clients[key].aruba_ws_conn_id}\n`);
-  //     conn_id = aruba_ws_clients[key].aruba_ws_conn_id;
-  //     status_str = "{ \"status\": \"SUCCESS: AP Mac found\" }"
-  //     break
-  //   }
-  // }  
-
-
-  console.log(`SEARCH  conn_id:${conn_id} for AP mac:${recv_apmac}`)
-  if (recv_apmac in aruba_ws_clients) {
-    conn_id = aruba_ws_clients[recv_apmac].aruba_ws_conn_id
-  }
-  console.log(`AFTER  conn_id:${conn_id}`)
-
-  if (conn_id === null) {
-    console.log("conn_id is not set")
-  } else {
-    console.log(`For AP:${recv_apmac} Connection ID:${conn_id}`)
-    status_str = "{ \"status\": \"SUCCESS: AP Mac found\" }"
-  }
-
   try {
-    var reply = aruba_telemetry_proto.IotSbMessage.fromObject(reqBody);
-    console.log("Constructed Reply: ", reply);
-    aruba_telemetry_proto.IotSbMessage.verify(reply);
-    var payload = aruba_telemetry_proto.IotSbMessage.encode(reply).finish();
-    console.log("Constructed PBF: ", payload);
-    console.log("Buffer Len: ", payload.length);
+    console.log(`LOOKUP Connection ID for AP mac:${recv_apmac}`)
+    if (recv_apmac in aruba_ws_clients) {
+      conn_id = aruba_ws_clients[recv_apmac].aruba_ws_conn_id
+    } else {
+      throw `FAIL: AP MAC ${recv_apmac} not found`
+    }
 
-    ws.clients.forEach(function each(client) {
-      if (client.aruba_conn_id == conn_id) {
-        console.log("Match found: " + client.aruba_conn_id)
-        client.send(payload)
-      }
-    });
-    // Send status string back to caller of REST api
-    res.send(status_str)
-
+    if (conn_id === null) {
+      throw `FAIL: Connection ID not found for AP MAC ${recv_apmac}`
+    } else {
+      console.log(`For AP:${recv_apmac} Connection ID:${conn_id}`)
+      var reply = aruba_telemetry_proto.IotSbMessage.fromObject(reqBody);
+      aruba_telemetry_proto.IotSbMessage.verify(reply);
+      var payload = aruba_telemetry_proto.IotSbMessage.encode(reply).finish();
+      //console.log("Constructed Reply: ", reply);
+      //console.log("Constructed PBF: ", payload);
+      //console.log("Buffer Len: ", payload.length);
+  
+      ws.clients.forEach(function each(client) {
+        if (client.aruba_conn_id == conn_id) {
+          console.log("Match found: " + client.aruba_conn_id)
+          client.send(payload)
+        }
+      });
+      // Send status string back to caller of REST api
+      res.send(JSON.stringify({"status": "SUCCESS: AP MAC found"}, null, 2))
+    }
   } catch (e) {
     console.log(e);
     res.status(500)
-    res.send('ERROR when sending msg to WS client')
-    console.log("ERROR when sending msg to client")
+    res.send(JSON.stringify({"status": e}, null, 2))
   }
 })
 
@@ -171,7 +165,6 @@ app.post('/ap_topo', jsonParser,function(req,res){
 ws.on('connection',function(wsoc, req)
 {
   try {
-    g_wsoc = wsoc;
     console.log("WebSocket connection Established!! From: " + req.socket.remoteAddress);
     console.log("req.headers['sec-websocket-key']: " + req.headers['sec-websocket-key'])
     wsoc.aruba_conn_id = req.headers['sec-websocket-key'];
@@ -230,9 +223,11 @@ function clear_aruba_ws_clients(aruba_conn_id)
 }
 
 
-// Function is used during unit testing using 'wscat' which sends 
-// JSON formatted strings mimicking the apHealthUpdate msgs from the AP 
-function handle_json_test_msg(mesg, aruba_conn_id, msgIsJSON)
+// Function populates the aruba_ws_clients object which is made up of key-value 
+// pairs where the key is the AP MAC and the value is the JSON-formatted apHealthUpdate 
+// msg from the AP. This function was used during unit testing using 'wscat' which sends 
+// JSON formatted strings mimicking the apHealthUpdate msgs from the AP.
+function handle_ap_health_msg(mesg, aruba_conn_id, msgIsJSON)
 {
   console.log("Inside "+arguments.callee.name);
   try {
@@ -265,16 +260,21 @@ function handle_aruba_telemetry_proto_mesg(mesg, aruba_conn_id) {
   try {
     var err = aruba_telemetry_proto.Telemetry.verify(mesg);
     if (err) {
-      //console.log(err);
+      console.log(err);
     }
 
     // Decode Message
     var reqBody = aruba_telemetry_proto.Telemetry.decode(mesg);
     reqBody = reqBody.toJSON();
 
-    // Store AP and corresponding websocket client info
+    // Store AP and corresponding websocket client info.
+    // Note: Since we store the connection ID in the aruba_ws_clients object, which is 
+    //       created from apHealthUpdate messages, users cannot send a SB msg until the 
+    //       AP MAC is populated alongwith the connection ID. Users can call the ap_topo
+    //       endpoint to check if the receiver AP of interest is present in the 
+    //       aruba_ws_clients object.
     if (reqBody.meta.nbTopic == "apHealthUpdate") {
-      handle_json_test_msg(reqBody, aruba_conn_id, true);
+      handle_ap_health_msg(reqBody, aruba_conn_id, true);
     }
 
     console.log(JSON.stringify(reqBody, null, 2));
