@@ -21,6 +21,8 @@ var http = require('http');
 var fs = require('fs');
 var WebSocket = require('ws');
 var bodyParser = require('body-parser');
+var validator = require('validator');
+
 const date_options = {
   year: 'numeric',
   month: 'numeric',
@@ -79,20 +81,42 @@ app.post('/sb_api', jsonParser,function(req,res){
 
 });
 
+function validate_sb_serial_msg(msg){
+  if (validator.isJSON(msg, {allow_primitives: false})) {
+    console.log("Valid JSON")
+  } else {
+    console.log("INVALID JSON")
+  }
+}
 
 app.post('/test_sb_api', jsonParser,function(req,res){
   // handle API from GUI and send mesg to WSS.
 
   var reqBody = req.body
-  console.log("received json body:",JSON.stringify(reqBody,null,3));
+  console.log("received type:" +typeof(reqBody)+" json body:",JSON.stringify(reqBody,null,3));
+
+  // validate_sb_serial_msg(reqBody)
+
+  // return
+
+  console.log("Inside "+arguments.callee.name);
+
   // echo req.body 
 
-  console.log("aruba_ws_clients: "+ typeof(aruba_ws_clients)+"\n")
+  //console.log("aruba_ws_clients: "+ typeof(aruba_ws_clients)+"\n")
   //printValues(aruba_ws_clients)
-  console.log(aruba_ws_clients)
+  //console.log(aruba_ws_clients)
 
   let recv_apmac = null
-  if (reqBody.receiver.apMac) {
+  let mac_isbase64 = null;
+  if (validator.isBase64(reqBody.receiver.apMac)) {
+    console.log("is BASE64")
+    console.log(reqBody.receiver.apMac)
+    console.log(Buffer.from(reqBody.receiver.apMac, 'base64').toString("hex"));
+    recv_apmac = Buffer.from(reqBody.receiver.apMac, 'base64').toString("hex");
+    mac_isbase64 = true;
+  }
+  if (reqBody.receiver.apMac && !mac_isbase64) {
     console.log("Receiver AP Mac: " +reqBody.receiver.apMac);
     recv_apmac = reqBody.receiver.apMac;
     recv_apmac = recv_apmac.replace(/:/g,'');
@@ -103,12 +127,13 @@ app.post('/test_sb_api', jsonParser,function(req,res){
   let status_str = "{ \"status\": \"ERROR: AP Mac not found\" }"
   for (let i=0; i<aruba_ws_clients.length; i++) {
     if (aruba_ws_clients[i].reporter.mac === recv_apmac) {
-      console.log(aruba_ws_clients[i])
+      //console.log(aruba_ws_clients[i])
       conn_id = aruba_ws_clients[i].aruba_ws_conn_id
       status_str = "{ \"status\": \"SUCCESS: AP Mac found\" }"
     }
   }  
 
+  console.log(status_str)
   // Send status string back to caller of REST api
   res.send(status_str)
 
@@ -149,12 +174,27 @@ app.post('/test_sb_api', jsonParser,function(req,res){
 
 });
 
+app.post('/clients', jsonParser,function(req,res){
+  // handle API from GUI and send mesg to WSS.
+
+  var reqBody = req.body
+  console.log("received type:" +typeof(reqBody)+" json body:",JSON.stringify(reqBody,null,3));
+
+  // Send aruba_ws_clients list back to caller of REST api
+  // basically all the apHealthUpdate messages collected by this
+  // websocket server instance
+  console.log("Number of aruba_ws_clients: " + aruba_ws_clients.length)
+  res.send(JSON.stringify(aruba_ws_clients,null,3))
+
+});
+
+
 ws.on('connection',function(wsoc, req)
 {
   try {
     g_wsoc = wsoc;
     console.log("WebSocket connection Established!! From: " + req.connection.remoteAddress);
-    console.log("req.headers['sec-websocket-key']" + req.headers['sec-websocket-key'])
+    console.log("req.headers['sec-websocket-key']: " + req.headers['sec-websocket-key'])
     wsoc.aruba_conn_id = req.headers['sec-websocket-key'];
     wsoc.on('error', function(e)
     {
@@ -169,16 +209,13 @@ ws.on('connection',function(wsoc, req)
 
     wsoc.on('message', function message(mesg){
       try {
-        //console.log(wsoc.aruba_conn_id)
         if (typeof(mesg) === 'string') {
-          console.log("MSG COUNT-:: " + msg_counter + " typeof(mesg): " + typeof(mesg) + " connID: " +wsoc.aruba_conn_id);
+          //console.log("MSG COUNT-:: " + msg_counter + " typeof(mesg): " + typeof(mesg) + " connID: " +wsoc.aruba_conn_id);
           handle_json_test_msg(mesg, wsoc.aruba_conn_id, false);
         } else {
-          console.log("MSG COUNT=:: " + msg_counter + " typeof(mesg): " + typeof(mesg) + " connID: " +wsoc.aruba_conn_id);
+          //console.log("MSG COUNT=:: " + msg_counter + " typeof(mesg): " + typeof(mesg) + " connID: " +wsoc.aruba_conn_id);
           handle_aruba_telemetry_proto_mesg(mesg, wsoc.aruba_conn_id);
         }
-        //handle_aruba_telemetry_proto_mesg(mesg);
-        // wsoc.send(mesg);
       } catch (e) {
         console.log("Error: " + e);
       }
@@ -195,8 +232,6 @@ function handle_json_test_msg(mesg, aruba_conn_id, msgIsJSON)
 {
   msg_counter++;
   console.log("Inside "+arguments.callee.name);
-  console.log(mesg);
-  console.log(typeof(mesg));
   try {
     let json_obj;
     if (msgIsJSON) {
@@ -206,7 +241,6 @@ function handle_json_test_msg(mesg, aruba_conn_id, msgIsJSON)
       json_obj = JSON.parse(mesg);
     }
 
-    //printValues(json_obj);
     if (json_obj.meta.nbTopic === "apHealthUpdate") {
       if (json_obj.reporter) {
         console.log("reporter is here ==> "+json_obj.reporter.name)
@@ -222,52 +256,30 @@ function handle_json_test_msg(mesg, aruba_conn_id, msgIsJSON)
 }
 
 
-function handle_aruba_telemetry_proto_mesg(mesg, aruba_conn_id){
-    let ts = Date.now();
-    // timestamp in milliseconds
-    let date_ob = new Date(ts);
-    // current hours
-    let hours = date_ob.getHours();
-    // current minutes
-    let minutes = date_ob.getMinutes();
-    // current seconds
-    let seconds = date_ob.getSeconds();
-    let mili = ts % 1000;
-    
-    // Verify Message
-    try{
-        var err = aruba_telemetry_proto.Telemetry.verify(mesg);
-    if (err){
-        //console.log(err);
+function handle_aruba_telemetry_proto_mesg(mesg, aruba_conn_id) {
+  let date_ob = new Date();
+
+  // Verify Message
+  try {
+    var err = aruba_telemetry_proto.Telemetry.verify(mesg);
+    if (err) {
+      //console.log(err);
     }
-    
+
     // Decode Message
     var reqBody = aruba_telemetry_proto.Telemetry.decode(mesg);
 
     // Keep track of message count while running
     msg_counter++;
-    
-    reqBody = reqBody.toJSON()
-    handle_json_test_msg(reqBody, aruba_conn_id, true)
 
-    // SB API TRACKING
-    if (print_SBAPI_only) {
-        if((reqBody.meta.nbTopic == "actionResults") || (reqBody.meta.nbTopic == "characteristics") || (reqBody.meta.nbTopic == "status")) {
-            console.log(JSON.stringify(reqBody,null,2));
-            console.log("MSG COUNT: " + msg_counter + " Timestamp: " + hours + ":" + minutes + ":" + seconds + ":" + mili);
-            process.stdout.write("\n");
-        }
-        else {
-            process.stdout.write("Message Counter: " + msg_counter + "\r");
-        }
+    reqBody = reqBody.toJSON();
+    if (reqBody.meta.nbTopic == "apHealthUpdate") {
+      handle_json_test_msg(reqBody, aruba_conn_id, true);
     }
-    else {
-        console.log(JSON.stringify(reqBody,null,2));
-        console.log("MSG COUNT: " + msg_counter + " Timestamp: " + hours + ":" + minutes + ":" + seconds + ":" + mili);
-        process.stdout.write("\n");
-    }
-    
-  }catch (e){
+
+    console.log(JSON.stringify(reqBody, null, 2));
+    console.log( "MSG COUNT: " + msg_counter + " Timestamp: " + date_ob.toISOString() + "\n" );
+  } catch (e) {
     console.log(e);
   }
 }
@@ -277,3 +289,4 @@ function toHexString(byteArray) {
     return ('0' + (byte & 0xFF).toString(16)).slice(-2);
   }).join('')
 }
+
