@@ -201,7 +201,7 @@ function clear_aruba_ws_clients(aruba_conn_id)
       del_arr.push(apmac);
     }
   }
-  for (i=0; i<del_arr.length;i++) {
+  for (let i=0; i<del_arr.length;i++) {
     delete(aruba_ws_clients[del_arr[i]])
   }
   console.log(JSON.stringify(del_arr))
