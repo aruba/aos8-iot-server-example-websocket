@@ -36,7 +36,7 @@ require('log-timestamp')(function() { return new Date().toLocaleString('en-US',d
 
 var aruba_telemetry_proto = require("./aruba_iot_proto_MODIFIED.js").aruba_telemetry;
 
-const aruba_ws_clients = [];    // stores connected ws clients info 
+const aruba_ws_clients = {};    // stores connected ws clients info 
 var g_wsoc = null;
 const port = 7443;
 const MAX_CONNECTIONS = 100;
@@ -45,12 +45,7 @@ var jsonParser = bodyParser.json();
 const app = express()
 const httpServer = http.createServer(app)
 httpServer.maxConnections = MAX_CONNECTIONS
-var ws = new WebSocket.Server({server:httpServer});
-
-/*
- * Change the following value to True, to disable logging of all messages, except Soutbound API related messages
- */
-var print_SBAPI_only = false;
+var ws = new WebSocket.Server({server:httpServer, clientTracking:true});
 
 httpServer.listen(port, function(){
   console.log(`server started on port ${httpServer.address().port}` );
@@ -81,39 +76,17 @@ app.post('/sb_api', jsonParser,function(req,res){
 
 });
 
-function validate_sb_serial_msg(msg){
-  if (validator.isJSON(msg, {allow_primitives: false})) {
-    console.log("Valid JSON")
-  } else {
-    console.log("INVALID JSON")
-  }
-}
 
 app.post('/test_sb_api', jsonParser,function(req,res){
   // handle API from GUI and send mesg to WSS.
 
+  console.log("Inside /test_sb_api");
   var reqBody = req.body
-  console.log("received type:" +typeof(reqBody)+" json body:",JSON.stringify(reqBody,null,3));
-
-  // validate_sb_serial_msg(reqBody)
-
-  // return
-
-  console.log("Inside "+arguments.callee.name);
-
-  // echo req.body 
-
-  //console.log("aruba_ws_clients: "+ typeof(aruba_ws_clients)+"\n")
-  //printValues(aruba_ws_clients)
-  //console.log(aruba_ws_clients)
-
-  let recv_apmac = null
-  let mac_isbase64 = null;
+  var recv_apmac = null
+  var mac_isbase64 = null;
   if (validator.isBase64(reqBody.receiver.apMac)) {
-    console.log("is BASE64")
-    console.log(reqBody.receiver.apMac)
-    console.log(Buffer.from(reqBody.receiver.apMac, 'base64').toString("hex"));
     recv_apmac = Buffer.from(reqBody.receiver.apMac, 'base64').toString("hex");
+    console.log(`is BASE64 val:${reqBody.receiver.apMac} convertedValue:${recv_apmac}`)
     mac_isbase64 = true;
   }
   if (reqBody.receiver.apMac && !mac_isbase64) {
@@ -123,77 +96,99 @@ app.post('/test_sb_api', jsonParser,function(req,res){
     console.log("Receiver AP Mac minus colon: " +recv_apmac)
   }
 
-  let conn_id = null
+  var conn_id = null
   let status_str = "{ \"status\": \"ERROR: AP Mac not found\" }"
-  for (let i=0; i<aruba_ws_clients.length; i++) {
-    if (aruba_ws_clients[i].reporter.mac === recv_apmac) {
-      //console.log(aruba_ws_clients[i])
-      conn_id = aruba_ws_clients[i].aruba_ws_conn_id
+  for (var key in aruba_ws_clients) {
+    if (aruba_ws_clients[key].reporter.mac === recv_apmac) {
+      console.log(`Found key: ${key} for reporter MAC:${recv_apmac} with WS connection id:${aruba_ws_clients[key].aruba_ws_conn_id}\n`);
+      conn_id = aruba_ws_clients[key].aruba_ws_conn_id
       status_str = "{ \"status\": \"SUCCESS: AP Mac found\" }"
+      break
     }
   }  
 
-  console.log(status_str)
-  // Send status string back to caller of REST api
-  res.send(status_str)
-
-
-
-  // ws.clients.forEach(function each(client){
-  //   console.log(client.aruba_conn_id)
-  //   if(client.aruba_conn_id == conn_id){
-  //     console.log("Match found: "+ client.aruba_conn_id)
-  //     client.send(JSON.stringify(reqBody,null,3))
-  //   }
-  // });
-
-  try{
+  try {
     var reply = aruba_telemetry_proto.IotSbMessage.fromObject(reqBody);
-    console.log("Constructed Reply: ",reply);
-
+    //console.log("Constructed Reply: ", reply);
     aruba_telemetry_proto.IotSbMessage.verify(reply);
     var payload = aruba_telemetry_proto.IotSbMessage.encode(reply).finish();
-    console.log("Constructed PBF: ",payload);
-    console.log("Buffer Len: ",payload.length);
+    //console.log("Constructed PBF: ", payload);
+    //console.log("Buffer Len: ", payload.length);
 
-    ws.clients.forEach(function each(client){
-      console.log(client.aruba_conn_id)
-      if(client.aruba_conn_id == conn_id){
-        console.log("Match found: "+ client.aruba_conn_id)
-        client.send(JSON.stringify(reqBody,null,3))
+    ws.clients.forEach(function each(client) {
+      if (client.aruba_conn_id == conn_id) {
+        console.log("Match found: " + client.aruba_conn_id)
+        client.send(JSON.stringify(reqBody, null, 3))
       }
     });
-    
-  }catch(e){
+
+    // Send status string back to caller of REST api
+    res.send(status_str)
+
+  } catch (e) {
     console.log(e);
-    //res.status(500)
-    //res.send('Error')
+    res.status(500)
+    res.send('ERROR when sending msg to WS client')
     console.log("ERROR when sending msg to client")
   }
 
 
+})
+
+// Endpoint returns 'aruba_ws_clients' object 
+// which contains the AP MAC and the associated WS client id
+// alongwith other info from the apHealthUpdate message
+// collected by this websocket server instance
+app.post('/client_aps', jsonParser,function(req,res){
+
+  console.log("Number of aruba_ws_clients: " + Object.keys(aruba_ws_clients).length)
+  // for (var key in aruba_ws_clients) {
+  //   console.log("key: "+key)
+  //   console.log("value: "+JSON.stringify(aruba_ws_clients[key], null, 2)+"\n");
+  // }
+  res.send(JSON.stringify(aruba_ws_clients,null,2))
+
 });
 
-app.post('/clients', jsonParser,function(req,res){
-  // handle API from GUI and send mesg to WSS.
 
-  var reqBody = req.body
-  console.log("received type:" +typeof(reqBody)+" json body:",JSON.stringify(reqBody,null,3));
+// Endpoint returns 'aruba_ws_clients' object 
+// which contains the AP MAC and the associated WS client id
+// alongwith other info from the apHealthUpdate message
+// collected by this websocket server instance
+app.post('/client_ws', jsonParser,function(req,res){
 
-  // Send aruba_ws_clients list back to caller of REST api
-  // basically all the apHealthUpdate messages collected by this
-  // websocket server instance
-  console.log("Number of aruba_ws_clients: " + aruba_ws_clients.length)
-  res.send(JSON.stringify(aruba_ws_clients,null,3))
+  var tmp;
+  console.log("found: ipaddress: "+JSON.stringify(ws, null, 3))
+  ws.clients.forEach(function each(client) {
+    //console.log(JSON.stringify(client, null, 3))
+    console.log("found: " + client.aruba_conn_id+"  ipaddress: "+client._socket._peername.address)
+    console.log("found: " + client.aruba_conn_id+"  ipaddress: "+JSON.stringify(ws.clients, null, 3))
+
+    // if (client.aruba_conn_id == conn_id) {
+    //   console.log("Match found: " + client.aruba_conn_id)
+    //   client.send(JSON.stringify(reqBody, null, 3))
+    // }
+  });
+
+  // console.log("Number of aruba_ws_clients: " + Object.keys(aruba_ws_clients).length)
+  // for (var key in aruba_ws_clients) {
+  //   console.log("key: "+key)
+  //   console.log("value: "+JSON.stringify(aruba_ws_clients[key], null, 2)+"\n");
+  // }
+  res.send(JSON.stringify("client_ws test 3",null,2))
 
 });
 
+function clear_aruba_ws_clients(aruba_conn_id)
+{
+
+}
 
 ws.on('connection',function(wsoc, req)
 {
   try {
     g_wsoc = wsoc;
-    console.log("WebSocket connection Established!! From: " + req.connection.remoteAddress);
+    console.log("WebSocket connection Established!! From: " + req.socket.remoteAddress);
     console.log("req.headers['sec-websocket-key']: " + req.headers['sec-websocket-key'])
     wsoc.aruba_conn_id = req.headers['sec-websocket-key'];
     wsoc.on('error', function(e)
@@ -203,7 +198,8 @@ ws.on('connection',function(wsoc, req)
 
     wsoc.on('close', function(e)
     {
-        console.log("WebSocket connection Closed!! From: " + req.connection.remoteAddress);
+        console.log("WebSocket connection Closed!! From: " + req.socket.remoteAddress);
+        console.log("WebSocket id: " + wsoc.aruba_conn_id);
         console.log("Error: " + e);
     });
 
@@ -248,7 +244,7 @@ function handle_json_test_msg(mesg, aruba_conn_id, msgIsJSON)
         console.log("reporter is NOTT here")
       }
       json_obj.aruba_ws_conn_id = aruba_conn_id
-      aruba_ws_clients.push(json_obj);
+      aruba_ws_clients[json_obj.reporter.mac] = json_obj;
     }
   } catch (e) {
     return false;
