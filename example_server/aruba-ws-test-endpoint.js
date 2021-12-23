@@ -59,12 +59,13 @@ httpServer.listen(port, function(){
 
 // Endpoint allows user to send a properly formatted SB api message back to
 // the IAP/controller based on the receiver MAC value. 
-// Note: Since we lookup the connection ID in the aruba_ws_clients object, which is 
-//       created from apHealthUpdate messages, users cannot send a SB msg until the 
-//       AP MAC is populated alongwith the connection ID. Users can call the ap_topo
-//       endpoint to check if the receiver AP of interest is present in the 
-//       aruba_ws_clients object.
-// Note: the receiver->all option (set to true) is not supported in this function.
+// Notes: 
+// 1. Since we lookup the connection ID in the aruba_ws_clients object, which is 
+//    created from NB messages containing the reporter topic, users cannot send a 
+//    SB msg until the AP MAC is populated alongwith the connection ID. 
+//    Users can call the ap_topo endpoint to check if the receiver AP of interest 
+//    is present in the aruba_ws_clients object.
+// 2. The receiver->all option (set to true) is not supported in this function.
 app.post('/sb_api', jsonParser,function(req,res){
   // handle API from GUI and send mesg to WSS.
   var conn_id = null;
@@ -125,19 +126,22 @@ app.post('/sb_api', jsonParser,function(req,res){
   }
 })
 
-// Endpoint returns the list of APs that sent apHeathUpdate messages 
+// Endpoint returns the list of APs that sent NB messages 
 // to this websocker server instance. 'aruba_ws_clients' object 
 // contains the AP MAC and the associated WS client id
-// alongwith other info from the apHealthUpdate message.
+// alongwith other info from the NB messages.
 app.post('/ap_info', jsonParser,function(req,res){
-  console.log("Number of aruba_ws_clients: " + Object.keys(aruba_ws_clients).length)
+  console.log("Enter /ap_info");
+  console.log("Number of connected APs: " + Object.keys(aruba_ws_clients).length)
   res.send(JSON.stringify(aruba_ws_clients,null,2))
+  console.log("Exit /ap_info\n\n");
 });
 
 // Endpoint returns an array of objects, each containing the websocket 
 // connection id, the peer/client IP address and a list of APs for which 
 // we received an apHeathUpdate over that client connection.
 app.post('/ap_topo', jsonParser,function(req,res){
+  console.log("Enter /ap_topo");
   var tmp = [];
   ws.clients.forEach(function each(client) {
     console.log("found: " + client.aruba_conn_id+"  ipaddress: "+client._socket._peername.address)
@@ -153,8 +157,9 @@ app.post('/ap_topo', jsonParser,function(req,res){
               "aruba_ws_peer_address": client._socket._peername.address, 
               "aruba_aps": ap_arr})
   });
-  console.log("Total number of connections: "+tmp.length)
+  console.log("Total number of Websocket connections: "+tmp.length)
   res.send(JSON.stringify(tmp,null,2))
+  console.log("Exit /ap_topo\n\n");
 });
 
 
@@ -186,7 +191,7 @@ ws.on('connection',function(wsoc, req)
         msg_counter++;
         if (typeof(mesg) === 'string') {
           //console.log("MSG COUNT-:: " + msg_counter + " typeof(mesg): " + typeof(mesg) + " connID: " +wsoc.aruba_conn_id);
-          handle_json_test_msg(mesg, wsoc.aruba_conn_id, false);
+          update_aruba_ws_clients(mesg, wsoc.aruba_conn_id, false);
         } else {
           //console.log("MSG COUNT=:: " + msg_counter + " typeof(mesg): " + typeof(mesg) + " connID: " +wsoc.aruba_conn_id);
           handle_aruba_telemetry_proto_mesg(mesg, wsoc.aruba_conn_id);
@@ -224,10 +229,10 @@ function clear_aruba_ws_clients(aruba_conn_id)
 
 
 // Function populates the aruba_ws_clients object which is made up of key-value 
-// pairs where the key is the AP MAC and the value is the JSON-formatted apHealthUpdate 
-// msg from the AP. This function was used during unit testing using 'wscat' which sends 
+// pairs where the key is the AP MAC. Note that this function was used during 
+// unit testing using 'wscat' which sends 
 // JSON formatted strings mimicking the apHealthUpdate msgs from the AP.
-function handle_ap_health_msg(mesg, aruba_conn_id, msgIsJSON)
+function update_aruba_ws_clients(mesg, aruba_conn_id, msgIsJSON)
 {
   console.log("Inside "+arguments.callee.name);
   try {
@@ -235,20 +240,25 @@ function handle_ap_health_msg(mesg, aruba_conn_id, msgIsJSON)
     if (msgIsJSON) {
       json_obj = mesg;
     } else {
-      // msg is string, convert to JSON
+      // If mesg is string, try converting to JSON
       json_obj = JSON.parse(mesg);
     }
 
-    if (json_obj.meta.nbTopic === "apHealthUpdate") {
-      if (json_obj.reporter) {
-        console.log("reporter is present ==> "+json_obj.reporter.name)
+    if (json_obj.reporter) {
+      if (!(json_obj.reporter.mac in aruba_ws_clients)) {
+        aruba_ws_clients[json_obj.reporter.mac] = {reporter: json_obj.reporter, aruba_ws_conn_id: aruba_conn_id};
+        console.log(`reporter mac ${json_obj.reporter.mac} added`)
+        console.log(aruba_ws_clients)
       } else {
-        console.log("reporter is ABSENT")
+        console.log(`reporter mac ${json_obj.reporter.mac} already present`)
       }
-      json_obj.aruba_ws_conn_id = aruba_conn_id
-      aruba_ws_clients[json_obj.reporter.mac] = json_obj;
+    } else {
+      console.log(`reporter is ABSENT`)
     }
+
   } catch (e) {
+    console.log(e)
+    console.log(`Invalid Msg: ${mesg}`)
     return false;
   }
 }
@@ -268,17 +278,15 @@ function handle_aruba_telemetry_proto_mesg(mesg, aruba_conn_id) {
     reqBody = reqBody.toJSON();
 
     // Store AP and corresponding websocket client info.
-    // Note: Since we store the connection ID in the aruba_ws_clients object, which is 
-    //       created from apHealthUpdate messages, users cannot send a SB msg until the 
-    //       AP MAC is populated alongwith the connection ID. Users can call the ap_topo
-    //       endpoint to check if the receiver AP of interest is present in the 
-    //       aruba_ws_clients object.
-    if (reqBody.meta.nbTopic == "apHealthUpdate") {
-      handle_ap_health_msg(reqBody, aruba_conn_id, true);
-    }
-
+    // Notes: 
+    // 1. Since we store the connection ID in the aruba_ws_clients object, which is 
+    //    created from NB messages containing the reporter topic, users cannot send a 
+    //    SB msg until the AP MAC is populated alongwith the connection ID. 
+    //    Users can call the ap_topo endpoint to check if the receiver AP of interest 
+    //    is present in the aruba_ws_clients object.
+    update_aruba_ws_clients(reqBody, aruba_conn_id, true);
     console.log(JSON.stringify(reqBody, null, 2));
-    console.log( "MSG COUNT: " + msg_counter);
+    console.log(`MSG COUNT: ${msg_counter}\n`);
   } catch (e) {
     console.log(e);
   }
