@@ -18,7 +18,6 @@
 
 var express = require('express');
 var http = require('http');
-var fs = require('fs');
 var WebSocket = require('ws');
 var bodyParser = require('body-parser');
 var validator = require('validator');
@@ -32,7 +31,10 @@ const date_options = {
   second: '2-digit',
   timeZoneName: 'short'
 };
-require('log-timestamp')(function() { return new Date().toLocaleString('en-US',date_options) });
+//Basic Timestamp for console.log (shows time in millisecond)
+require('log-timestamp');
+// Prettier timestamp
+// require('log-timestamp')(function() { return new Date().toLocaleString('en-US',) });
 
 var aruba_telemetry_proto = require("./aruba_iot_proto_MODIFIED.js").aruba_telemetry;
 
@@ -51,39 +53,21 @@ httpServer.listen(port, function(){
   console.log(`server started on port ${httpServer.address().port}` );
 });
 
+
+/*******************************************
+ ************* REST ENDPOINTS **************
+ *******************************************/
+
 app.post('/sb_api', jsonParser,function(req,res){
   // handle API from GUI and send mesg to WSS.
-
-  var reqBody = req.body
-  console.log("received json body:",JSON.stringify(reqBody,null,3));
-
-  try{
-    var reply = aruba_telemetry_proto.IotSbMessage.fromObject(reqBody);
-    console.log("Constructed Reply: ",reply);
-
-    aruba_telemetry_proto.IotSbMessage.verify(reply);
-    var payload = aruba_telemetry_proto.IotSbMessage.encode(reply).finish();
-    console.log("Constructed PBF: ",payload);
-    console.log("Buffer Len: ",payload.length);
-
-    g_wsoc.send(payload);
-    res.send('OK')
-  }catch(e){
-    console.log(e);
-    res.status(500)
-    res.send('Error')
-  }
-
-});
-
-
-app.post('/test_sb_api', jsonParser,function(req,res){
-  // handle API from GUI and send mesg to WSS.
-
-  console.log("Inside /test_sb_api");
-  var reqBody = req.body
-  var recv_apmac = null
+  var conn_id = null;
+  var reqBody = req.body;
+  var recv_apmac = null;
   var mac_isbase64 = null;
+  let status_str = "{ \"status\": \"ERROR: AP Mac not found\" }"
+  
+  console.log("Inside /sb_api");
+  // re-format apmac inorder to do a lookup for the ws client
   if (validator.isBase64(reqBody.receiver.apMac)) {
     recv_apmac = Buffer.from(reqBody.receiver.apMac, 'base64').toString("hex");
     console.log(`is BASE64 val:${reqBody.receiver.apMac} convertedValue:${recv_apmac}`)
@@ -96,32 +80,46 @@ app.post('/test_sb_api', jsonParser,function(req,res){
     console.log("Receiver AP Mac minus colon: " +recv_apmac)
   }
 
-  var conn_id = null
-  let status_str = "{ \"status\": \"ERROR: AP Mac not found\" }"
-  for (var key in aruba_ws_clients) {
-    if (aruba_ws_clients[key].reporter.mac === recv_apmac) {
-      console.log(`Found key: ${key} for reporter MAC:${recv_apmac} with WS connection id:${aruba_ws_clients[key].aruba_ws_conn_id}\n`);
-      conn_id = aruba_ws_clients[key].aruba_ws_conn_id
-      status_str = "{ \"status\": \"SUCCESS: AP Mac found\" }"
-      break
-    }
-  }  
+
+
+  // // Iterate thru all APs and locate the proper ws client handle
+  // for (var key in aruba_ws_clients) {
+  //   if (aruba_ws_clients[key].reporter.mac === recv_apmac) {
+  //     console.log(`Found key: ${key} for reporter MAC:${recv_apmac} with WS connection id:${aruba_ws_clients[key].aruba_ws_conn_id}\n`);
+  //     conn_id = aruba_ws_clients[key].aruba_ws_conn_id;
+  //     status_str = "{ \"status\": \"SUCCESS: AP Mac found\" }"
+  //     break
+  //   }
+  // }  
+
+
+  console.log(`SEARCH  conn_id:${conn_id} for AP mac:${recv_apmac}`)
+  if (recv_apmac in aruba_ws_clients) {
+    conn_id = aruba_ws_clients[recv_apmac].aruba_ws_conn_id
+  }
+  console.log(`AFTER  conn_id:${conn_id}`)
+
+  if (conn_id === null) {
+    console.log("conn_id is not set")
+  } else {
+    console.log(`For AP:${recv_apmac} Connection ID:${conn_id}`)
+    status_str = "{ \"status\": \"SUCCESS: AP Mac found\" }"
+  }
 
   try {
     var reply = aruba_telemetry_proto.IotSbMessage.fromObject(reqBody);
-    //console.log("Constructed Reply: ", reply);
+    console.log("Constructed Reply: ", reply);
     aruba_telemetry_proto.IotSbMessage.verify(reply);
     var payload = aruba_telemetry_proto.IotSbMessage.encode(reply).finish();
-    //console.log("Constructed PBF: ", payload);
-    //console.log("Buffer Len: ", payload.length);
+    console.log("Constructed PBF: ", payload);
+    console.log("Buffer Len: ", payload.length);
 
     ws.clients.forEach(function each(client) {
       if (client.aruba_conn_id == conn_id) {
         console.log("Match found: " + client.aruba_conn_id)
-        client.send(JSON.stringify(reqBody, null, 3))
+        client.send(payload)
       }
     });
-
     // Send status string back to caller of REST api
     res.send(status_str)
 
@@ -131,58 +129,44 @@ app.post('/test_sb_api', jsonParser,function(req,res){
     res.send('ERROR when sending msg to WS client')
     console.log("ERROR when sending msg to client")
   }
-
-
 })
 
-// Endpoint returns 'aruba_ws_clients' object 
-// which contains the AP MAC and the associated WS client id
-// alongwith other info from the apHealthUpdate message
-// collected by this websocket server instance
-app.post('/client_aps', jsonParser,function(req,res){
-
+// Endpoint returns the list of APs that sent apHeathUpdate messages 
+// to this websocker server instance. 'aruba_ws_clients' object 
+// contains the AP MAC and the associated WS client id
+// alongwith other info from the apHealthUpdate message.
+app.post('/ap_info', jsonParser,function(req,res){
   console.log("Number of aruba_ws_clients: " + Object.keys(aruba_ws_clients).length)
-  // for (var key in aruba_ws_clients) {
-  //   console.log("key: "+key)
-  //   console.log("value: "+JSON.stringify(aruba_ws_clients[key], null, 2)+"\n");
-  // }
   res.send(JSON.stringify(aruba_ws_clients,null,2))
-
 });
 
-
-// Endpoint returns 'aruba_ws_clients' object 
-// which contains the AP MAC and the associated WS client id
-// alongwith other info from the apHealthUpdate message
-// collected by this websocket server instance
-app.post('/client_ws', jsonParser,function(req,res){
-
-  var tmp;
-  console.log("found: ipaddress: "+JSON.stringify(ws, null, 3))
+// Endpoint returns an array of objects, each containing the websocket 
+// connection id, the peer/client IP address and a list of APs for which 
+// we received an apHeathUpdate over that client connection.
+app.post('/ap_topo', jsonParser,function(req,res){
+  var tmp = [];
   ws.clients.forEach(function each(client) {
-    //console.log(JSON.stringify(client, null, 3))
     console.log("found: " + client.aruba_conn_id+"  ipaddress: "+client._socket._peername.address)
-    console.log("found: " + client.aruba_conn_id+"  ipaddress: "+JSON.stringify(ws.clients, null, 3))
 
-    // if (client.aruba_conn_id == conn_id) {
-    //   console.log("Match found: " + client.aruba_conn_id)
-    //   client.send(JSON.stringify(reqBody, null, 3))
-    // }
+    let ap_arr = [];
+    for (var apmac in aruba_ws_clients){
+      if (aruba_ws_clients[apmac].aruba_ws_conn_id === client.aruba_conn_id) {
+        ap_arr.push(apmac);
+      }
+    }
+
+    tmp.push({"aruba_ws_connection_id": client.aruba_conn_id, 
+              "aruba_ws_peer_address": client._socket._peername.address, 
+              "aruba_aps": ap_arr})
   });
-
-  // console.log("Number of aruba_ws_clients: " + Object.keys(aruba_ws_clients).length)
-  // for (var key in aruba_ws_clients) {
-  //   console.log("key: "+key)
-  //   console.log("value: "+JSON.stringify(aruba_ws_clients[key], null, 2)+"\n");
-  // }
-  res.send(JSON.stringify("client_ws test 3",null,2))
-
+  console.log("Total number of connections: "+tmp.length)
+  res.send(JSON.stringify(tmp,null,2))
 });
 
-function clear_aruba_ws_clients(aruba_conn_id)
-{
 
-}
+/*******************************************
+ ****** WEBSOCKET CONNECTION HANDLER *******
+ *******************************************/
 
 ws.on('connection',function(wsoc, req)
 {
@@ -201,10 +185,12 @@ ws.on('connection',function(wsoc, req)
         console.log("WebSocket connection Closed!! From: " + req.socket.remoteAddress);
         console.log("WebSocket id: " + wsoc.aruba_conn_id);
         console.log("Error: " + e);
+        clear_aruba_ws_clients(wsoc.aruba_conn_id)
     });
 
     wsoc.on('message', function message(mesg){
       try {
+        msg_counter++;
         if (typeof(mesg) === 'string') {
           //console.log("MSG COUNT-:: " + msg_counter + " typeof(mesg): " + typeof(mesg) + " connID: " +wsoc.aruba_conn_id);
           handle_json_test_msg(mesg, wsoc.aruba_conn_id, false);
@@ -222,11 +208,32 @@ ws.on('connection',function(wsoc, req)
   }
 });
 
+
+/*******************************************
+ *********** HELPER FUNCTIONS **************
+ *******************************************/
+
+// Function clears the AP list when the websocket client is disconnected
+function clear_aruba_ws_clients(aruba_conn_id)
+{
+  console.log("Inside "+arguments.callee.name+ " conn_id: "+aruba_conn_id);
+  var del_arr = []
+  for (var apmac in aruba_ws_clients){
+    if (aruba_ws_clients[apmac].aruba_ws_conn_id === aruba_conn_id) {
+      del_arr.push(apmac);
+    }
+  }
+  for (i=0; i<del_arr.length;i++) {
+    delete(aruba_ws_clients[del_arr[i]])
+  }
+  console.log(JSON.stringify(del_arr))
+}
+
+
 // Function is used during unit testing using 'wscat' which sends 
 // JSON formatted strings mimicking the apHealthUpdate msgs from the AP 
 function handle_json_test_msg(mesg, aruba_conn_id, msgIsJSON)
 {
-  msg_counter++;
   console.log("Inside "+arguments.callee.name);
   try {
     let json_obj;
@@ -239,9 +246,9 @@ function handle_json_test_msg(mesg, aruba_conn_id, msgIsJSON)
 
     if (json_obj.meta.nbTopic === "apHealthUpdate") {
       if (json_obj.reporter) {
-        console.log("reporter is here ==> "+json_obj.reporter.name)
+        console.log("reporter is present ==> "+json_obj.reporter.name)
       } else {
-        console.log("reporter is NOTT here")
+        console.log("reporter is ABSENT")
       }
       json_obj.aruba_ws_conn_id = aruba_conn_id
       aruba_ws_clients[json_obj.reporter.mac] = json_obj;
@@ -251,10 +258,9 @@ function handle_json_test_msg(mesg, aruba_conn_id, msgIsJSON)
   }
 }
 
-
+// Function manipulates the incoming protobuf message 
+// Message contents are decoded and printed to output 
 function handle_aruba_telemetry_proto_mesg(mesg, aruba_conn_id) {
-  let date_ob = new Date();
-
   // Verify Message
   try {
     var err = aruba_telemetry_proto.Telemetry.verify(mesg);
@@ -264,25 +270,16 @@ function handle_aruba_telemetry_proto_mesg(mesg, aruba_conn_id) {
 
     // Decode Message
     var reqBody = aruba_telemetry_proto.Telemetry.decode(mesg);
-
-    // Keep track of message count while running
-    msg_counter++;
-
     reqBody = reqBody.toJSON();
+
+    // Store AP and corresponding websocket client info
     if (reqBody.meta.nbTopic == "apHealthUpdate") {
       handle_json_test_msg(reqBody, aruba_conn_id, true);
     }
 
     console.log(JSON.stringify(reqBody, null, 2));
-    console.log( "MSG COUNT: " + msg_counter + " Timestamp: " + date_ob.toISOString() + "\n" );
+    console.log( "MSG COUNT: " + msg_counter);
   } catch (e) {
     console.log(e);
   }
 }
-
-function toHexString(byteArray) {
-  return Array.from(byteArray, function(byte) {
-    return ('0' + (byte & 0xFF).toString(16)).slice(-2);
-  }).join('')
-}
-
