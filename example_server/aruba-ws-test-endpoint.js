@@ -20,17 +20,7 @@ var express = require('express');
 var http = require('http');
 var WebSocket = require('ws');
 var bodyParser = require('body-parser');
-var validator = require('validator');
 
-const date_options = {
-  year: 'numeric',
-  month: 'numeric',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  timeZoneName: 'short'
-};
 //Basic Timestamp for console.log (shows time in millisecond)
 require('log-timestamp');
 // Prettier timestamp
@@ -71,25 +61,15 @@ app.post('/sb_api', jsonParser,function(req,res){
   var conn_id = null;
   var reqBody = req.body;
   var recv_apmac = null;
-  var mac_isbase64 = null;
   
   console.log("Inside /sb_api");
 
   // When using aruba_iot_proto_MODIFIED.js, AP mac is converted to string when the msg
   // is decoded and its contents are store in arub_ws_clients. However, in the sb_api 
   // endpoint, the AP MAC is expected to be base64 encoded. That is why, we re-format 
-  // the SB api apmac in order to do a lookup for the ws client
-  if (validator.isBase64(reqBody.receiver.apMac)) {
-    recv_apmac = Buffer.from(reqBody.receiver.apMac, 'base64').toString("hex");
-    console.log(`is BASE64 val:${reqBody.receiver.apMac} convertedValue:${recv_apmac}`)
-    mac_isbase64 = true;
-  }
-  if (reqBody.receiver.apMac && !mac_isbase64) {
-    console.log("Receiver AP Mac: " +reqBody.receiver.apMac);
-    recv_apmac = reqBody.receiver.apMac;
-    recv_apmac = recv_apmac.replace(/:/g,'');
-    console.log("Receiver AP Mac minus colon: " +recv_apmac)
-  }
+  // the SB api receiver AP MAC in order to do a lookup for the ws client
+  recv_apmac = Buffer.from(reqBody.receiver.apMac, 'base64').toString("hex");
+  console.log(`Receiver AP MAC BASE64 val:${reqBody.receiver.apMac} convertedValue:${recv_apmac}`)
 
   try {
     console.log(`LOOKUP Connection ID for AP mac:${recv_apmac}`)
@@ -120,7 +100,7 @@ app.post('/sb_api', jsonParser,function(req,res){
       res.send(JSON.stringify({"status": "SUCCESS: AP MAC found"}, null, 2))
     }
   } catch (e) {
-    console.log(e);
+    console.log(e+"\n");
     res.status(500)
     res.send(JSON.stringify({"status": e}, null, 2))
   }
@@ -214,7 +194,7 @@ ws.on('connection',function(wsoc, req)
 // Function clears the AP list when the websocket client is disconnected
 function clear_aruba_ws_clients(aruba_conn_id)
 {
-  console.log("Inside "+arguments.callee.name+ " conn_id: "+aruba_conn_id);
+  //console.log("Inside "+arguments.callee.name+ " conn_id: "+aruba_conn_id);
   var del_arr = []
   for (var apmac in aruba_ws_clients){
     if (aruba_ws_clients[apmac].aruba_ws_conn_id === aruba_conn_id) {
@@ -234,7 +214,7 @@ function clear_aruba_ws_clients(aruba_conn_id)
 // JSON formatted strings mimicking the apHealthUpdate msgs from the AP.
 function update_aruba_ws_clients(mesg, aruba_conn_id, msgIsJSON)
 {
-  console.log("Inside "+arguments.callee.name);
+  //console.log("Inside "+arguments.callee.name);
   try {
     let json_obj;
     if (msgIsJSON) {
@@ -248,7 +228,6 @@ function update_aruba_ws_clients(mesg, aruba_conn_id, msgIsJSON)
       if (!(json_obj.reporter.mac in aruba_ws_clients)) {
         aruba_ws_clients[json_obj.reporter.mac] = {reporter: json_obj.reporter, aruba_ws_conn_id: aruba_conn_id};
         console.log(`reporter mac ${json_obj.reporter.mac} added`)
-        console.log(aruba_ws_clients)
       } else {
         console.log(`reporter mac ${json_obj.reporter.mac} already present`)
       }
