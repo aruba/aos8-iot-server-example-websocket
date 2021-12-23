@@ -34,7 +34,7 @@ require('log-timestamp')(function() { return new Date().toLocaleString('en-US',d
 
 var aruba_telemetry_proto = require("./aruba_iot_proto_MODIFIED.js").aruba_telemetry;
 
-const aruba_ws_clients = [];
+const aruba_ws_clients = [];    // stores connected ws clients info 
 var g_wsoc = null;
 const port = 7443;
 const MAX_CONNECTIONS = 100;
@@ -45,8 +45,6 @@ const httpServer = http.createServer(app)
 httpServer.maxConnections = MAX_CONNECTIONS
 var ws = new WebSocket.Server({server:httpServer});
 
-const pad62 = (valStr) => valStr.padEnd(62," ");
-const pad20 = (valStr) => valStr.padEnd(20," ");
 /*
  * Change the following value to True, to disable logging of all messages, except Soutbound API related messages
  */
@@ -78,10 +76,11 @@ app.post('/sb_api', jsonParser,function(req,res){
     res.status(500)
     res.send('Error')
   }
+
 });
 
 
-app.post('/test_api', jsonParser,function(req,res){
+app.post('/test_sb_api', jsonParser,function(req,res){
   // handle API from GUI and send mesg to WSS.
 
   var reqBody = req.body
@@ -101,29 +100,54 @@ app.post('/test_api', jsonParser,function(req,res){
   }
 
   let conn_id = null
+  let status_str = "{ \"status\": \"ERROR: AP Mac not found\" }"
   for (let i=0; i<aruba_ws_clients.length; i++) {
     if (aruba_ws_clients[i].reporter.mac === recv_apmac) {
       console.log(aruba_ws_clients[i])
       conn_id = aruba_ws_clients[i].aruba_ws_conn_id
+      status_str = "{ \"status\": \"SUCCESS: AP Mac found\" }"
     }
   }  
 
-  res.send(conn_id)
+  // Send status string back to caller of REST api
+  res.send(status_str)
 
-  ws.clients.forEach(function each(client){
-    console.log(client.aruba_conn_id)
-    if(client.aruba_conn_id == conn_id){
-      console.log("Match found: "+ client.aruba_conn_id)
-      client.send(JSON.stringify(reqBody,null,3))
-    }
-  });
 
-  
 
+  // ws.clients.forEach(function each(client){
+  //   console.log(client.aruba_conn_id)
+  //   if(client.aruba_conn_id == conn_id){
+  //     console.log("Match found: "+ client.aruba_conn_id)
+  //     client.send(JSON.stringify(reqBody,null,3))
+  //   }
+  // });
+
+  try{
+    var reply = aruba_telemetry_proto.IotSbMessage.fromObject(reqBody);
+    console.log("Constructed Reply: ",reply);
+
+    aruba_telemetry_proto.IotSbMessage.verify(reply);
+    var payload = aruba_telemetry_proto.IotSbMessage.encode(reply).finish();
+    console.log("Constructed PBF: ",payload);
+    console.log("Buffer Len: ",payload.length);
+
+    ws.clients.forEach(function each(client){
+      console.log(client.aruba_conn_id)
+      if(client.aruba_conn_id == conn_id){
+        console.log("Match found: "+ client.aruba_conn_id)
+        client.send(JSON.stringify(reqBody,null,3))
+      }
+    });
+    
+  }catch(e){
+    console.log(e);
+    //res.status(500)
+    //res.send('Error')
+    console.log("ERROR when sending msg to client")
+  }
 
 
 });
-
 
 ws.on('connection',function(wsoc, req)
 {
@@ -148,7 +172,7 @@ ws.on('connection',function(wsoc, req)
         //console.log(wsoc.aruba_conn_id)
         if (typeof(mesg) === 'string') {
           console.log("MSG COUNT-:: " + msg_counter + " typeof(mesg): " + typeof(mesg) + " connID: " +wsoc.aruba_conn_id);
-          handle_json_test_msg(mesg, wsoc.aruba_conn_id);
+          handle_json_test_msg(mesg, wsoc.aruba_conn_id, false);
         } else {
           console.log("MSG COUNT=:: " + msg_counter + " typeof(mesg): " + typeof(mesg) + " connID: " +wsoc.aruba_conn_id);
           handle_aruba_telemetry_proto_mesg(mesg, wsoc.aruba_conn_id);
@@ -167,16 +191,21 @@ ws.on('connection',function(wsoc, req)
 
 // Function is used during unit testing using 'wscat' which sends 
 // JSON formatted strings mimicking the apHealthUpdate msgs from the AP 
-function handle_json_test_msg(mesg, aruba_conn_id)
+function handle_json_test_msg(mesg, aruba_conn_id, msgIsJSON)
 {
   msg_counter++;
   console.log("Inside "+arguments.callee.name);
   console.log(mesg);
   console.log(typeof(mesg));
   try {
-    //let json_obj = JSON.parse(mesg);
+    let json_obj;
+    if (msgIsJSON) {
+      json_obj = mesg;
+    } else {
+      // msg is string, convert to JSON
+      json_obj = JSON.parse(mesg);
+    }
 
-    let json_obj = mesg;
     //printValues(json_obj);
     if (json_obj.meta.nbTopic === "apHealthUpdate") {
       if (json_obj.reporter) {
@@ -219,9 +248,8 @@ function handle_aruba_telemetry_proto_mesg(mesg, aruba_conn_id){
     msg_counter++;
     
     reqBody = reqBody.toJSON()
-    handle_json_test_msg(reqBody, aruba_conn_id)
+    handle_json_test_msg(reqBody, aruba_conn_id, true)
 
-    if (0) {
     // SB API TRACKING
     if (print_SBAPI_only) {
         if((reqBody.meta.nbTopic == "actionResults") || (reqBody.meta.nbTopic == "characteristics") || (reqBody.meta.nbTopic == "status")) {
@@ -234,35 +262,13 @@ function handle_aruba_telemetry_proto_mesg(mesg, aruba_conn_id){
         }
     }
     else {
-      //process.stdout.write("====================\n");
-      //console.log(JSON.stringify(reqBody,null,2));
-//        if ((reqBody.meta.nbTopic == "characteristics") && (reqBody.results[0].type == "gattNotification")) {
-//        //console.log(JSON.stringify(reqBody,null,2));
-//        console.log("MSG COUNT:notification: " + msg_counter + " Timestamp: " + hours + ":" + minutes + ":" + seconds + ":" + mili);
-//        process.stdout.write("\n");
-//        } else if (reqBody.meta.nbTopic == "bleData") {
-//          //let mac = reqBody.bleData[0].mac;
-//          let data = pad62(reqBody.bleData[0].data);
-//          //console.log("MAC: " + reqBody.bleData[0].mac + " rssi: "+reqBody.bleData[0].rssi+" frametype: " +reqBody.bleData[0].frameType+ " data: " +reqBody.bleData[0].data+ " addrType: "+reqBody.bleData[0].addrType);
-//          //console.log(`MAC: ${reqBody.bleData[0].mac} RSSI:${reqBody.bleData[0].rssi}`);
-//          console.log(`MAC: ${reqBody.bleData[0].mac} RSSI: ${reqBody.bleData[0].rssi} Data: ${pad62(reqBody.bleData[0].data)} FrameType: ${pad20(reqBody.bleData[0].frameType)} AddrType: ${reqBody.bleData[0].addrType}`);
-//          //let soMany = 10;
-//          //console.log(`This is ${soMany} times easier!`);
-//        } else {
-//  if ((reqBody.meta.nbTopic == "bleData") && (reqBody.bleData[0].mac == 'e4f2057ee868')) {
-          console.log(JSON.stringify(reqBody,null,2));
-          console.log("MSG COUNT:: " + msg_counter + " Timestamp: " + hours + ":" + minutes + ":" + seconds + ":" + mili);
-          process.stdout.write("\n"); 
+        console.log(JSON.stringify(reqBody,null,2));
+        console.log("MSG COUNT: " + msg_counter + " Timestamp: " + hours + ":" + minutes + ":" + seconds + ":" + mili);
+        process.stdout.write("\n");
     }
-//        }
-//    }
-  }
-
+    
   }catch (e){
     console.log(e);
-
-
-    
   }
 }
 
@@ -271,14 +277,3 @@ function toHexString(byteArray) {
     return ('0' + (byte & 0xFF).toString(16)).slice(-2);
   }).join('')
 }
-
-function printValues(obj) {
-  for(var k in obj) {
-      console.log("\n" + k + "++");
-      if(obj[k] instanceof Object) {
-          printValues(obj[k]);
-      } else {
-          console.log(obj[k] + "--");
-      };
-  }
-};
