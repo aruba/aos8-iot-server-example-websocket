@@ -80,4 +80,7 @@ message Action {
 
     // Encryption for bonded devices
     optional BleBondingKey  bondingKey          = 9;
+
+    // Multiple apb support
+    optional bytes          apbMac              = 10;
 }

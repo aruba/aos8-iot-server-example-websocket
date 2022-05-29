@@ -28,5 +28,4 @@ message Status {
 
     // Connection update information
     optional ConnUpdate     connUpdate      = 4;
- 
 }

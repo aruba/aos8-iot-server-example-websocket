@@ -47,4 +47,7 @@ message ActionResult {
 
     // Bonding key is present when devices are bonded together
     optional BleBondingKey  bondingKey      = 6;
+
+    // APB mac address
+    optional bytes          apbMac          = 7;
 }

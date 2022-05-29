@@ -57,4 +57,7 @@ message BleData {
 
     // Mac Address Type
     optional MacAddrType    addrType        = 5;
+
+    // APB mac address
+    optional bytes          apbMac          = 6;
 }
