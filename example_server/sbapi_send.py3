@@ -108,6 +108,13 @@ def send_sb_serialdata_msg(json_file):
 
     return
 
+def req_ap_topo():
+    response = requests.request("POST", 'http://127.0.0.1:7443/ap_topo')
+    print(response.text)
+
+def req_ap_info():
+    response = requests.request("POST", 'http://127.0.0.1:7443/ap_info')
+    print(response.text)
 
 def read_custom_json_file():
     user_file = input("Enter filename: ")
@@ -128,6 +135,9 @@ def menu_options():
     print(" 5. Send BLE Action connect.json")
     print(" 6. Send BLE Action disconnect.json")
     print(" 7. Send custom BLE JSON via file")
+    print("===============================")
+    print(" 8. Request connected AP topology from websocket server")
+    print(" 9. Request connected AP information from websocket server")
     print("===============================")
 
 def main():
@@ -156,11 +166,15 @@ def main():
         elif ('5' == str.lower(user_input)):
             send_sb_ble_msg('action_examples/connect.json')
         elif ('6' == str.lower(user_input)):
-            send_sb_ble_msg('action_examples/disconnect.json')    
+            send_sb_ble_msg('action_examples/disconnect.json')
         elif ('7' == str.lower(user_input)):
             rv = read_custom_json_file()
             if rv is not None:
-                send_sb_ble_msg(rv)                
+                send_sb_ble_msg(rv)
+        elif ('8' == str.lower(user_input)):
+            req_ap_topo()
+        elif ('9' == str.lower(user_input)):
+            req_ap_info()
         else:
             print("\nInvalid Option "+str.lower(user_input)+". Exiting ....\n")
             exit(0)

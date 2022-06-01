@@ -72,6 +72,7 @@ $root.aruba_telemetry = (function() {
          * @property {aruba_telemetry.ActionStatus|null} [status] ActionResult status
          * @property {string|null} [statusString] ActionResult statusString
          * @property {aruba_telemetry.IBleBondingKey|null} [bondingKey] ActionResult bondingKey
+         * @property {Uint8Array|null} [apbMac] ActionResult apbMac
          */
 
         /**
@@ -138,6 +139,14 @@ $root.aruba_telemetry = (function() {
         ActionResult.prototype.bondingKey = null;
 
         /**
+         * ActionResult apbMac.
+         * @member {Uint8Array} apbMac
+         * @memberof aruba_telemetry.ActionResult
+         * @instance
+         */
+        ActionResult.prototype.apbMac = $util.newBuffer([]);
+
+        /**
          * Creates a new ActionResult instance using the specified properties.
          * @function create
          * @memberof aruba_telemetry.ActionResult
@@ -173,6 +182,8 @@ $root.aruba_telemetry = (function() {
                 writer.uint32(/* id 5, wireType 2 =*/42).string(message.statusString);
             if (message.bondingKey != null && message.hasOwnProperty("bondingKey"))
                 $root.aruba_telemetry.BleBondingKey.encode(message.bondingKey, writer.uint32(/* id 6, wireType 2 =*/50).fork()).ldelim();
+            if (message.apbMac != null && message.hasOwnProperty("apbMac"))
+                writer.uint32(/* id 7, wireType 2 =*/58).bytes(message.apbMac);
             return writer;
         };
 
@@ -224,6 +235,9 @@ $root.aruba_telemetry = (function() {
                     break;
                 case 6:
                     message.bondingKey = $root.aruba_telemetry.BleBondingKey.decode(reader, reader.uint32());
+                    break;
+                case 7:
+                    message.apbMac = reader.bytes();
                     break;
                 default:
                     reader.skipType(tag & 7);
@@ -311,6 +325,9 @@ $root.aruba_telemetry = (function() {
                 if (error)
                     return "bondingKey." + error;
             }
+            if (message.apbMac != null && message.hasOwnProperty("apbMac"))
+                if (!(message.apbMac && typeof message.apbMac.length === "number" || $util.isString(message.apbMac)))
+                    return "apbMac: buffer expected";
             return null;
         };
 
@@ -444,6 +461,11 @@ $root.aruba_telemetry = (function() {
                     throw TypeError(".aruba_telemetry.ActionResult.bondingKey: object expected");
                 message.bondingKey = $root.aruba_telemetry.BleBondingKey.fromObject(object.bondingKey);
             }
+            if (object.apbMac != null)
+                if (typeof object.apbMac === "string")
+                    $util.base64.decode(object.apbMac, message.apbMac = $util.newBuffer($util.base64.length(object.apbMac)), 0);
+                else if (object.apbMac.length)
+                    message.apbMac = object.apbMac;
             return message;
         };
 
@@ -473,6 +495,13 @@ $root.aruba_telemetry = (function() {
                 object.status = options.enums === String ? "failureGeneric" : 0;
                 object.statusString = "";
                 object.bondingKey = null;
+                if (options.bytes === String)
+                    object.apbMac = "";
+                else {
+                    object.apbMac = [];
+                    if (options.bytes !== Array)
+                        object.apbMac = $util.newBuffer(object.apbMac);
+                }
             }
             if (message.actionId != null && message.hasOwnProperty("actionId"))
                 object.actionId = message.actionId;
@@ -486,6 +515,8 @@ $root.aruba_telemetry = (function() {
                 object.statusString = message.statusString;
             if (message.bondingKey != null && message.hasOwnProperty("bondingKey"))
                 object.bondingKey = $root.aruba_telemetry.BleBondingKey.toObject(message.bondingKey, options);
+            if (message.apbMac != null && message.hasOwnProperty("apbMac"))
+                object.apbMac = options.bytes === String ? $util.base64.encode(message.apbMac, 0, message.apbMac.length) : options.bytes === Array ? Array.prototype.slice.call(message.apbMac) : message.apbMac;
             return object;
         };
 
@@ -2136,6 +2167,7 @@ $root.aruba_telemetry = (function() {
          * @property {Uint8Array|null} [data] BleData data
          * @property {number|null} [rssi] BleData rssi
          * @property {aruba_telemetry.MacAddrType|null} [addrType] BleData addrType
+         * @property {Uint8Array|null} [apbMac] BleData apbMac
          */
 
         /**
@@ -2194,6 +2226,14 @@ $root.aruba_telemetry = (function() {
         BleData.prototype.addrType = 0;
 
         /**
+         * BleData apbMac.
+         * @member {Uint8Array} apbMac
+         * @memberof aruba_telemetry.BleData
+         * @instance
+         */
+        BleData.prototype.apbMac = $util.newBuffer([]);
+
+        /**
          * Creates a new BleData instance using the specified properties.
          * @function create
          * @memberof aruba_telemetry.BleData
@@ -2227,6 +2267,8 @@ $root.aruba_telemetry = (function() {
                 writer.uint32(/* id 4, wireType 0 =*/32).sint32(message.rssi);
             if (message.addrType != null && message.hasOwnProperty("addrType"))
                 writer.uint32(/* id 5, wireType 0 =*/40).int32(message.addrType);
+            if (message.apbMac != null && message.hasOwnProperty("apbMac"))
+                writer.uint32(/* id 6, wireType 2 =*/50).bytes(message.apbMac);
             return writer;
         };
 
@@ -2275,6 +2317,9 @@ $root.aruba_telemetry = (function() {
                     break;
                 case 5:
                     message.addrType = reader.int32();
+                    break;
+                case 6:
+                    message.apbMac = reader.bytes();
                     break;
                 default:
                     reader.skipType(tag & 7);
@@ -2341,6 +2386,9 @@ $root.aruba_telemetry = (function() {
                 case 3:
                     break;
                 }
+            if (message.apbMac != null && message.hasOwnProperty("apbMac"))
+                if (!(message.apbMac && typeof message.apbMac.length === "number" || $util.isString(message.apbMac)))
+                    return "apbMac: buffer expected";
             return null;
         };
 
@@ -2408,6 +2456,11 @@ $root.aruba_telemetry = (function() {
                 message.addrType = 3;
                 break;
             }
+            if (object.apbMac != null)
+                if (typeof object.apbMac === "string")
+                    $util.base64.decode(object.apbMac, message.apbMac = $util.newBuffer($util.base64.length(object.apbMac)), 0);
+                else if (object.apbMac.length)
+                    message.apbMac = object.apbMac;
             return message;
         };
 
@@ -2442,6 +2495,13 @@ $root.aruba_telemetry = (function() {
                 }
                 object.rssi = 0;
                 object.addrType = options.enums === String ? "addr_type_public" : 0;
+                if (options.bytes === String)
+                    object.apbMac = "";
+                else {
+                    object.apbMac = [];
+                    if (options.bytes !== Array)
+                        object.apbMac = $util.newBuffer(object.apbMac);
+                }
             }
             if (message.mac != null && message.hasOwnProperty("mac"))
                 object.mac = options.bytes === String ? $util.base64.encode(message.mac, 0, message.mac.length) : options.bytes === Array ? Array.prototype.slice.call(message.mac) : message.mac;
@@ -2453,6 +2513,8 @@ $root.aruba_telemetry = (function() {
                 object.rssi = message.rssi;
             if (message.addrType != null && message.hasOwnProperty("addrType"))
                 object.addrType = options.enums === String ? $root.aruba_telemetry.MacAddrType[message.addrType] : message.addrType;
+            if (message.apbMac != null && message.hasOwnProperty("apbMac"))
+                object.apbMac = options.bytes === String ? $util.base64.encode(message.apbMac, 0, message.apbMac.length) : options.bytes === Array ? Array.prototype.slice.call(message.apbMac) : message.apbMac;
             return object;
         };
 
@@ -13720,6 +13782,7 @@ $root.aruba_telemetry = (function() {
          * @property {Uint8Array|null} [value] Action value
          * @property {aruba_telemetry.IAuthentication|null} [authentication] Action authentication
          * @property {aruba_telemetry.IBleBondingKey|null} [bondingKey] Action bondingKey
+         * @property {Uint8Array|null} [apbMac] Action apbMac
          */
 
         /**
@@ -13810,6 +13873,14 @@ $root.aruba_telemetry = (function() {
         Action.prototype.bondingKey = null;
 
         /**
+         * Action apbMac.
+         * @member {Uint8Array} apbMac
+         * @memberof aruba_telemetry.Action
+         * @instance
+         */
+        Action.prototype.apbMac = $util.newBuffer([]);
+
+        /**
          * Creates a new Action instance using the specified properties.
          * @function create
          * @memberof aruba_telemetry.Action
@@ -13851,6 +13922,8 @@ $root.aruba_telemetry = (function() {
                 $root.aruba_telemetry.Authentication.encode(message.authentication, writer.uint32(/* id 8, wireType 2 =*/66).fork()).ldelim();
             if (message.bondingKey != null && message.hasOwnProperty("bondingKey"))
                 $root.aruba_telemetry.BleBondingKey.encode(message.bondingKey, writer.uint32(/* id 9, wireType 2 =*/74).fork()).ldelim();
+            if (message.apbMac != null && message.hasOwnProperty("apbMac"))
+                writer.uint32(/* id 10, wireType 2 =*/82).bytes(message.apbMac);
             return writer;
         };
 
@@ -13911,6 +13984,9 @@ $root.aruba_telemetry = (function() {
                     break;
                 case 9:
                     message.bondingKey = $root.aruba_telemetry.BleBondingKey.decode(reader, reader.uint32());
+                    break;
+                case 10:
+                    message.apbMac = reader.bytes();
                     break;
                 default:
                     reader.skipType(tag & 7);
@@ -13990,6 +14066,9 @@ $root.aruba_telemetry = (function() {
                 if (error)
                     return "bondingKey." + error;
             }
+            if (message.apbMac != null && message.hasOwnProperty("apbMac"))
+                if (!(message.apbMac && typeof message.apbMac.length === "number" || $util.isString(message.apbMac)))
+                    return "apbMac: buffer expected";
             return null;
         };
 
@@ -14077,6 +14156,11 @@ $root.aruba_telemetry = (function() {
                     throw TypeError(".aruba_telemetry.Action.bondingKey: object expected");
                 message.bondingKey = $root.aruba_telemetry.BleBondingKey.fromObject(object.bondingKey);
             }
+            if (object.apbMac != null)
+                if (typeof object.apbMac === "string")
+                    $util.base64.decode(object.apbMac, message.apbMac = $util.newBuffer($util.base64.length(object.apbMac)), 0);
+                else if (object.apbMac.length)
+                    message.apbMac = object.apbMac;
             return message;
         };
 
@@ -14127,6 +14211,13 @@ $root.aruba_telemetry = (function() {
                 }
                 object.authentication = null;
                 object.bondingKey = null;
+                if (options.bytes === String)
+                    object.apbMac = "";
+                else {
+                    object.apbMac = [];
+                    if (options.bytes !== Array)
+                        object.apbMac = $util.newBuffer(object.apbMac);
+                }
             }
             if (message.actionId != null && message.hasOwnProperty("actionId"))
                 object.actionId = message.actionId;
@@ -14146,6 +14237,8 @@ $root.aruba_telemetry = (function() {
                 object.authentication = $root.aruba_telemetry.Authentication.toObject(message.authentication, options);
             if (message.bondingKey != null && message.hasOwnProperty("bondingKey"))
                 object.bondingKey = $root.aruba_telemetry.BleBondingKey.toObject(message.bondingKey, options);
+            if (message.apbMac != null && message.hasOwnProperty("apbMac"))
+                object.apbMac = options.bytes === String ? $util.base64.encode(message.apbMac, 0, message.apbMac.length) : options.bytes === Array ? Array.prototype.slice.call(message.apbMac) : message.apbMac;
             return object;
         };
 
